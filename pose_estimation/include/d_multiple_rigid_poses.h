@@ -185,6 +185,7 @@ public:
   bool isDenseWinner();
 
   std::vector<TranslationRotation3D> getPoses() const {
+    std::cout << "returning poes" << std::endl;
     return (_currentPoses);
   }
 
@@ -236,6 +237,7 @@ public:
   bool getCheckReliability() const { return (parameters_.check_reliability_); }
 
   void setPoses(std::vector<TranslationRotation3D> &newPoses) {
+    std::cout << "setting a pose" << std::endl;
     _currentPoses = newPoses;
   }
   void setSparsePose(TranslationRotation3D &newSparsePose, int sparseObject) {

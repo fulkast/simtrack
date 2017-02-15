@@ -122,6 +122,17 @@ void MultiRigidTracker::setObjects(std::vector<ObjectInfo> objects) {
                                       init_pose);
 }
 
+void MultiRigidTracker::setPoses(std::vector<pose::TranslationRotation3D>& poses)
+{
+  d_multiple_rigid_poses_->setPoses(poses);
+}
+
+std::vector<pose::TranslationRotation3D>
+     MultiRigidTracker::getPoses() const
+{
+  return d_multiple_rigid_poses_->getPoses();
+}
+
 void MultiRigidTracker::setWeights(float w_flow, float w_ar_flow,
                                    float w_disp) {
   d_multiple_rigid_poses_->setWeights(w_flow, w_ar_flow, w_disp);

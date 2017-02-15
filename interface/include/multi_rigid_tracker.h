@@ -78,6 +78,10 @@ public:
 
   void setObjects(std::vector<ObjectInfo> objects);
 
+  void setPoses(std::vector<pose::TranslationRotation3D>& poses);
+
+  std::vector<pose::TranslationRotation3D> getPoses() const;
+
   int getNumberOfObjects();
 
   Ogre::SceneManager *getSceneManager() {
