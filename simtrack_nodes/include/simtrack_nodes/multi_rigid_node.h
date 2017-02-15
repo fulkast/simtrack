@@ -84,6 +84,16 @@ private:
   void detectorThreadFunction(cv::Mat camera_matrix, size_t width,
                               size_t height);
 
+
+  void showCameraInfo(const sensor_msgs::CameraInfoConstPtr &info_msg) {
+    auto Pdata = info_msg->P.data();
+    for (int i = 0; i < 12; i++)
+    {
+      std::cout << Pdata[i] << " ";
+    }
+    std::cout << std::endl;
+  }
+
   interface::MultiRigidTracker::ObjectInfo
   composeObjectInfo(std::string model_name);
 

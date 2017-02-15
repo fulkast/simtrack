@@ -238,6 +238,7 @@ bool MultiRigidNode::start() {
         new SynchronizerRGB(SyncPolicyRGB(5), sub_rgb_, sub_rgb_info_));
     sync_rgb_->registerCallback(
         boost::bind(&MultiRigidNode::colorOnlyCb, this, _1, _2));
+    ROS_INFO("registered synchronizer policy");
   } else {
     depth_it_.reset(new image_transport::ImageTransport(nh_));
     sub_depth_.subscribe(*depth_it_, "depth", 2, depth_hint);
@@ -255,32 +256,12 @@ bool MultiRigidNode::start() {
   f = boost::bind(&MultiRigidNode::reconfigureCb, this, _1, _2);
   dynamic_reconfigure_server_.setCallback(f);
 
+  ROS_INFO("totally ready to start");
   return true;
 }
 
 bool MultiRigidNode::switchObjects(simtrack_nodes::SwitchObjectsRequest &req,
                                    simtrack_nodes::SwitchObjectsResponse &res) {
-  std::stringstream ss;
-  ss << "simtrack switching to models: ";
-  for (auto &it : req.model_names)
-    ss << it << " ";
-  ROS_INFO("%s", ss.str().c_str());
-
-  // switch tracker
-  objects_.clear();
-  for (auto &it : req.model_names)
-    objects_.push_back(composeObjectInfo(it));
-  switched_tracker_objects_ = true;
-
-  // switch detector
-  // the detector may start issuing poses out of bounds to the tracker
-  {
-    std::lock_guard<std::mutex> lock(obj_filenames_mutex_);
-    obj_filenames_.clear();
-    for (auto &it : req.model_names)
-      obj_filenames_.push_back(composeObjectFilename(it));
-  }
-  switched_detector_objects_.store(true);
 
   return true;
 }
@@ -289,24 +270,7 @@ void MultiRigidNode::depthAndColorCb(
     const sensor_msgs::ImageConstPtr &depth_msg,
     const sensor_msgs::ImageConstPtr &rgb_msg,
     const sensor_msgs::CameraInfoConstPtr &rgb_info_msg) {
-  // we'll assume registration is correct so that rgb and depth camera matrices
-  // are equal
-  camera_matrix_rgb_ = composeCameraMatrix(rgb_info_msg);
 
-  cv_bridge::CvImageConstPtr cv_rgb_ptr, cv_depth_ptr;
-  try {
-    if (rgb_msg->encoding == "8UC1") // fix for kinect2 mono output
-      cv_rgb_ptr = cv_bridge::toCvShare(rgb_msg);
-    else
-      cv_rgb_ptr = cv_bridge::toCvShare(rgb_msg, "mono8");
-    cv_depth_ptr = cv_bridge::toCvShare(depth_msg);
-  }
-  catch (cv_bridge::Exception &e) {
-    ROS_ERROR("cv_bridge exception: %s", e.what());
-    return;
-  }
-
-  updatePose(cv_rgb_ptr, cv_depth_ptr, rgb_msg->header.frame_id);
 }
 
 void MultiRigidNode::colorOnlyCb(
@@ -314,7 +278,11 @@ void MultiRigidNode::colorOnlyCb(
     const sensor_msgs::CameraInfoConstPtr &rgb_info_msg) {
   // we'll assume registration is correct so that rgb and depth camera matrices
   // are equal
+  ROS_INFO("composing camera matrix");
+
   camera_matrix_rgb_ = composeCameraMatrix(rgb_info_msg);
+
+  ROS_INFO("color callback");
 
   cv_bridge::CvImageConstPtr cv_rgb_ptr, cv_depth_ptr;
   try {
@@ -342,19 +310,20 @@ void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     throw std::runtime_error("MultiRigidNode::updatePose: image type "
                              "should be CV_8UC1\n");
 
+  ROS_INFO("going to launch detector now");
   // initialize detector thread if not yet active
   // the engine is created here since we need camera info
-  if (detector_thread_ == nullptr) {
-    detector_thread_ = std::unique_ptr<std::thread>(new std::thread(
-        &MultiRigidNode::detectorThreadFunction, this, camera_matrix_rgb_,
-        cv_rgb_ptr->image.cols, cv_rgb_ptr->image.rows));
-  }
+  // if (detector_thread_ == nullptr) {
+  //   detector_thread_ = std::unique_ptr<std::thread>(new std::thread(
+  //       &MultiRigidNode::detectorThreadFunction, this, camera_matrix_rgb_,
+  //       cv_rgb_ptr->image.cols, cv_rgb_ptr->image.rows));
+  // }
 
   // copy the image for the detector (if running)
-  if (detector_enabled_.load()) {
-    std::lock_guard<std::mutex> lock(img_gray_detector_mutex_);
-    img_gray_detector_ = cv_rgb_ptr->image.clone();
-  }
+  // if (detector_enabled_.load()) {
+  //   std::lock_guard<std::mutex> lock(img_gray_detector_mutex_);
+  //   img_gray_detector_ = cv_rgb_ptr->image.clone();
+  // }
 
   // rescale tracker image and adjust camera matrix if size differs from depth
   // image, in this case the depth image size will dominate the conversion, this
@@ -604,6 +573,7 @@ cv::Mat MultiRigidNode::composeCameraMatrix(
     const sensor_msgs::CameraInfoConstPtr &info_msg) {
   cv::Mat camera_matrix =
       cv::Mat(3, 4, CV_64F, (void *)info_msg->P.data()).clone();
+  ROS_INFO("created camera info matrix");
   camera_matrix.at<double>(0, 2) -= info_msg->roi.x_offset;
   camera_matrix.at<double>(1, 2) -= info_msg->roi.y_offset;
   return (camera_matrix);
