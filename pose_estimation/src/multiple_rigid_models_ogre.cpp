@@ -95,6 +95,7 @@ void MultipleRigidModelsOgre::render(
 
   for (int i = 0; i < renderPoses.size(); i++) {
     bool valid = renderPoses.at(i).isValid();
+    valid = true;
     rigid_objects_.at(i)->setVisible(valid);
     if (valid) {
       rigid_objects_.at(i)->setPose(renderPoses.at(i).ogreTranslation(),
