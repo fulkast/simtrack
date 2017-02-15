@@ -256,7 +256,6 @@ bool MultiRigidNode::start() {
   f = boost::bind(&MultiRigidNode::reconfigureCb, this, _1, _2);
   dynamic_reconfigure_server_.setCallback(f);
 
-  ROS_INFO("totally ready to start");
   return true;
 }
 
@@ -278,8 +277,6 @@ void MultiRigidNode::colorOnlyCb(
     const sensor_msgs::CameraInfoConstPtr &rgb_info_msg) {
   // we'll assume registration is correct so that rgb and depth camera matrices
   // are equal
-  ROS_INFO("composing camera matrix");
-
   camera_matrix_rgb_ = composeCameraMatrix(rgb_info_msg);
 
   ROS_INFO("color callback");
@@ -310,7 +307,6 @@ void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     throw std::runtime_error("MultiRigidNode::updatePose: image type "
                              "should be CV_8UC1\n");
 
-  ROS_INFO("going to launch detector now");
   // initialize detector thread if not yet active
   // the engine is created here since we need camera info
   // if (detector_thread_ == nullptr) {
@@ -573,7 +569,6 @@ cv::Mat MultiRigidNode::composeCameraMatrix(
     const sensor_msgs::CameraInfoConstPtr &info_msg) {
   cv::Mat camera_matrix =
       cv::Mat(3, 4, CV_64F, (void *)info_msg->P.data()).clone();
-  ROS_INFO("created camera info matrix");
   camera_matrix.at<double>(0, 2) -= info_msg->roi.x_offset;
   camera_matrix.at<double>(1, 2) -= info_msg->roi.y_offset;
   return (camera_matrix);
