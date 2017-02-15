@@ -360,8 +360,8 @@ cv::Mat MultiRigidTracker::generateOutputImage(OutputImageType image_type) {
 
   case OutputImageType::optical_flow_x:
     vision::convertFlowToRGBA(d_flow_x_rgba_->data(), d_flow_y_rgba_->data(),
-                              d_optical_flow_->getOpticalFlowX().data(),
-                              d_optical_flow_->getOpticalFlowY().data(),
+                              d_optical_flow_->getARFlowX().data(),
+                              d_optical_flow_->getARFlowY().data(),
                               image_width_, image_height_, lower_lim, upper_lim,
                               min_mag);
     cudaMemcpy(texture.data, d_flow_x_rgba_->data(),
