@@ -302,7 +302,7 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     {
       auto poses = multi_rigid_tracker_->getPoses();
       int n = 0;
-      for (auto &pose : poses) pose.rotateZ(0.1);
+      for (auto &pose : poses) pose.rotateZ(1);
       multi_rigid_tracker_->setPoses(poses);
     }
 
