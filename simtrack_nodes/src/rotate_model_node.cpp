@@ -201,6 +201,7 @@ bool RotateModel::start() {
   f = boost::bind(&RotateModel::reconfigureCb, this, _1, _2);
   dynamic_reconfigure_server_.setCallback(f);
 
+  frame_count_ = 0;
   return true;
 }
 
@@ -271,11 +272,22 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     img_gray_tracker = cv_rgb_ptr->image;
   }
 
-  // override to zero matrix
+  // override to pepper nooise matrix
   #ifdef RGB_ZERO_OVERRIDE
     ROS_INFO("overriding input rgb data to zeros");
-    img_gray_tracker = cv::Mat(img_gray_tracker.rows,img_gray_tracker.cols, CV_8UC1,
-                            cvScalar(0.));
+    if (multi_rigid_tracker_==nullptr)
+    {
+
+      constBackground =
+        cv::imread("/home/seasponge/Workspace/catkin_ws/src/simtrack/data/backgrounds/IMG_558916.jpg",
+                    0);
+      cv::resize(constBackground, constBackground, img_gray_tracker.size());
+      // cv::Mat(img_gray_tracker.rows,img_gray_tracker.cols,
+                                // CV_8UC1,cvScalar(50.));
+      // cv::randu(constBackground,0,255);
+
+    }
+    img_gray_tracker = constBackground;
   #endif
 
   // initialize tracker engine if not yet active
@@ -286,6 +298,15 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
             img_gray_tracker.cols, img_gray_tracker.rows,
             camera_matrix_rgb_tracker, objects_, parameters_flow_,
             parameters_pose_));
+// set initial pose
+    auto poses = multi_rigid_tracker_->getPoses();
+    double T[3] = {0,0,1.0};
+    double R[3] = {0,1,0};
+    for (auto &pose : poses)
+    {
+      pose.setT(T);
+      pose.setR(R);
+    }
   }
 
   // update selected objects if new objects selected
@@ -301,8 +322,16 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     // rotate object pose
     {
       auto poses = multi_rigid_tracker_->getPoses();
-      int n = 0;
-      for (auto &pose : poses) pose.rotateZ(1);
+      int period = 1000;
+      int dir = (frame_count_ % period);
+      dir = dir < (period/2) ? -1 : 1;
+      ROS_INFO("frame count: %i, direction %i", frame_count_, dir);
+      for (auto &pose : poses)
+      {
+        // double T[3] = {0,0,0.3};
+        // pose.setT(T);
+        pose.rotateY(dir * 3);
+      }
       multi_rigid_tracker_->setPoses(poses);
     }
 
@@ -480,7 +509,6 @@ void RotateModel::reconfigureCb(simtrack_nodes::VisualizationConfig &config,
     size = {(int)objects_.size() };
     file.writeArray("object_labels", object_labels, size);
     file.writeArray("object_filenames", object_filenames, size);
-    frame_count_ = 0;
     recording_start_time_ = ros::Time::now();
   }
 

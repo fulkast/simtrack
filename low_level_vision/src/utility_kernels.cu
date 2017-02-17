@@ -33,6 +33,7 @@
 //#define UNROLL_INNER
 //#define IMUL(a, b) __mul24(a, b)
 #include <utility_kernels.h>
+#include <stdio.h>
 
 namespace vision {
 
@@ -284,7 +285,7 @@ __global__ void convertFlowToRGBA_kernel(uchar4 *d_flowx_out,
     float uy = d_flowy_in[__mul24(y, width) + x];
 
     float mag = sqrtf(ux * ux + uy * uy);
-
+    // printf("%d \n", mag);
     // first draw unmatched pixels in white
     if (!isfinite(ux) || (mag < minMag)) {
 

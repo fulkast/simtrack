@@ -3,7 +3,7 @@ simtrack/detector/device_id: 0
 
 simtrack/optical_flow/n_scales: 0 # 0=auto
 simtrack/optical_flow/median_filter: true
-simtrack/optical_flow/consistent: true
+simtrack/optical_flow/consistent: false
 simtrack/optical_flow/cons_thres: 0.5
 simtrack/optical_flow/four_orientations: false
 

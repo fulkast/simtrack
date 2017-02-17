@@ -103,6 +103,8 @@ private:
   std::vector<std::unique_ptr<D_GaborPyramid> > gabor_pyramids_real_;
   // ar image gabor pyramid (re-used)
   std::unique_ptr<D_GaborPyramid> gabor_pyramid_ar_;
+  // ar image gabor pyramids, previous and current
+  std::vector<std::unique_ptr<D_GaborPyramid> > gabor_pyramids_ar_;
 
   // multiscale optical flow estimates (internal resolution)
   std::vector<util::Device2D<float2>::Ptr> optical_flow_pyramid_;
