@@ -267,28 +267,41 @@ void MultiRigidTracker::computePoseUpdate() {
   // -----------
 
   d_multiple_rigid_poses_->setPoses(old_sparse_poses);
+  //
+  // std::cout << "sparse poses: " << std::endl;
+  // old_sparse_poses[0].show();
+  //
+  // store unblended image for later
 
-  // compute sparse ar flow
-  vision::augmentedRealityFloatArraySelectiveBlend(
-      d_float_ar_frame_->data(), d_prev_float_frame_->data(),
-      d_multiple_rigid_poses_->getTexture(),
-      d_multiple_rigid_poses_->getSegmentIND(), image_width_, image_height_,
-      d_float_ar_frame_->pitch(), d_multiple_rigid_poses_->getNObjects());
 
-  d_optical_flow_->addImageAR(*d_float_ar_frame_);
-  d_optical_flow_->updateOpticalFlowAR();
+  // // compute sparse ar flow
+  // vision::augmentedRealityFloatArraySelectiveBlend(
+  //     d_float_ar_frame_->data(), d_prev_float_frame_->data(), // blend old frame with current poses
+  //     d_multiple_rigid_poses_->getTexture(),
+  //     d_multiple_rigid_poses_->getSegmentIND(), image_width_, image_height_,
+  //     d_float_ar_frame_->pitch(), d_multiple_rigid_poses_->getNObjects());
+  //
+  // d_optical_flow_->addImageAR(*d_float_ar_frame_);
+  // d_optical_flow_->updateOpticalFlowAR();
+  //
+  // d_multiple_rigid_poses_->evaluateARFlowPoseError(
+  //     false, d_optical_flow_->getARFlowX(), old_sparse_poses);
+  //
+  // // store sparse ar flow to avoid recomputation
+  // d_flow_ar_x_tmp_->copyFrom(d_optical_flow_->getARFlowX());
+  // d_flow_ar_y_tmp_->copyFrom(d_optical_flow_->getARFlowY());
 
-  d_multiple_rigid_poses_->evaluateARFlowPoseError(
-      false, d_optical_flow_->getARFlowX(), old_sparse_poses);
+  // before we evaluate dense pose, we need to some how reset the information
+  // about the sparse pose now embedded in the float ar frame
 
-  // store sparse ar flow to avoid recomputation
-  d_flow_ar_x_tmp_->copyFrom(d_optical_flow_->getARFlowX());
-  d_flow_ar_y_tmp_->copyFrom(d_optical_flow_->getARFlowY());
 
   // eval dense
   // -----------
 
   d_multiple_rigid_poses_->setPoses(old_dense_poses);
+
+  std::cout << "dense poses: " << std::endl;
+  old_dense_poses[0].show();
 
   // compute sparse ar flow
   vision::augmentedRealityFloatArraySelectiveBlend(
@@ -305,18 +318,30 @@ void MultiRigidTracker::computePoseUpdate() {
 
   // determine winner
   // ----------------
+  //
+  // if (d_multiple_rigid_poses_->isDenseWinner())
+  //   d_multiple_rigid_poses_->setPoses(old_dense_poses);
+  // else
+  //   d_multiple_rigid_poses_->setPoses(old_sparse_poses);
+  //
+  //
+  //
+  // const util::Device1D<float> &d_flow_ar_x_winner =
+  //     d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowX()
+  //                                              : *d_flow_ar_x_tmp_.get();
+  // const util::Device1D<float> &d_flow_ar_y_winner =
+  //     d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowY()
+  //                                              : *d_flow_ar_y_tmp_.get();
 
-  if (d_multiple_rigid_poses_->isDenseWinner())
+
+
+
+  // ooverride dense winnder
     d_multiple_rigid_poses_->setPoses(old_dense_poses);
-  else
-    d_multiple_rigid_poses_->setPoses(old_sparse_poses);
 
-  const util::Device1D<float> &d_flow_ar_x_winner =
-      d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowX()
-                                               : *d_flow_ar_x_tmp_.get();
-  const util::Device1D<float> &d_flow_ar_y_winner =
-      d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowY()
-                                               : *d_flow_ar_y_tmp_.get();
+  const util::Device1D<float> &d_flow_ar_x_winner = d_optical_flow_->getARFlowX();
+
+  const util::Device1D<float> &d_flow_ar_y_winner = d_optical_flow_->getARFlowY();
 
   //  util::TimerGPU update_timer;
   // update pose
