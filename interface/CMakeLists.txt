@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.8.7)
 project(interface)
 
+SET(CMAKE_CXX_COMPILER gcc-4.9)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib/gcc/x86_64-linux-gnu/4.9.4/libstdc++.so")
+
 find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   cv_bridge
@@ -45,6 +48,8 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
+
+if(FALSE)
 
 add_executable(cmd_line_generate_sift_model
   src/cmd_line_generate_sift_model.cpp
@@ -101,3 +106,4 @@ add_executable(cmd_line_track_multi_object
 target_link_libraries(cmd_line_track_multi_object
   ${PROJECT_NAME}
 )
+endif()

@@ -287,7 +287,7 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
       // cv::randu(constBackground,0,255);
 
     }
-    // img_gray_tracker = constBackground;
+    img_gray_tracker = constBackground;
   #endif
 
   // initialize tracker engine if not yet active
@@ -322,7 +322,7 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     // rotate object pose
     {
       auto poses = multi_rigid_tracker_->getPoses();
-      int period = 1000;
+      int period = 10;
       int dir = (frame_count_ % period);
       dir = dir < (period/2) ? -1 : 1;
       ROS_INFO("frame count: %i, direction %i", frame_count_, dir);

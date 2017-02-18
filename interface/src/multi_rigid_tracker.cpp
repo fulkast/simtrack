@@ -31,7 +31,9 @@
 /*****************************************************************************/
 
 #include <multi_rigid_tracker.h>
+#include <json.hpp>
 #include <stdexcept>
+#include <fstream>
 #undef Success
 #include <Eigen/Geometry>
 #include <utilities.h>
@@ -40,6 +42,7 @@
 #include <hdf5.h>
 
 using namespace util;
+using nlohmann::json;
 
 namespace interface {
 
@@ -384,6 +387,7 @@ cv::Mat MultiRigidTracker::generateOutputImage(OutputImageType image_type) {
     break;
 
   case OutputImageType::optical_flow_x:
+  {
     vision::convertFlowToRGBA(d_flow_x_rgba_->data(), d_flow_y_rgba_->data(),
                               d_optical_flow_->getARFlowX().data(),
                               d_optical_flow_->getARFlowY().data(),
@@ -392,8 +396,34 @@ cv::Mat MultiRigidTracker::generateOutputImage(OutputImageType image_type) {
     cudaMemcpy(texture.data, d_flow_x_rgba_->data(),
                image_width_ * image_height_ * sizeof(uchar4),
                cudaMemcpyDeviceToHost);
-    break;
 
+    cv::Mat storeoutput = cv::Mat::zeros(image_height_, image_width_, CV_32FC1);
+    std::vector<float> outputdata(image_height_*image_width_);
+    cudaMemcpy(&outputdata[0], d_optical_flow_->getARFlowX().data(),
+               image_width_ * image_height_ * sizeof(float),
+               cudaMemcpyDeviceToHost);
+    json j;
+    std::cout << "image height" << image_height_ << std::endl;
+    j["data"] = outputdata;
+    std::ofstream o("/home/seasponge/Desktop/cv_arflow.json");
+    o << j << std::endl;
+
+    cv::Mat nan_mask = cv::Mat(storeoutput != storeoutput);
+
+    cv::bitwise_not(nan_mask, nan_mask);
+    nan_mask.convertTo(nan_mask, CV_32FC1);
+    // std::cout << "before " << storeoutput << std::endl;
+    storeoutput = storeoutput & nan_mask;
+    // std::cout << "after " << storeoutput << std::endl;
+    std::cout << storeoutput.type() << std::endl;
+    cv::FileStorage file("/home/seasponge/Desktop/cv_arflow.yml", cv::FileStorage::WRITE);
+
+    // Write to file!
+    file << "data" << storeoutput;
+
+    // cv::imwrite("/home/seasponge/Desktop/cv_arflow.png",cv::Mat(image_height_, image_width_, CV_32FC1,storeoutput));
+    break;
+  }
   case OutputImageType::optical_flow_y:
     vision::convertFlowToRGBA(d_flow_x_rgba_->data(), d_flow_y_rgba_->data(),
                               d_optical_flow_->getARFlowX().data(),
