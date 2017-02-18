@@ -50,6 +50,7 @@
 
 using namespace util;
 
+
 namespace simtrack {
 
 void RotateModel::detectorThreadFunction(cv::Mat camera_matrix, size_t width,
@@ -340,6 +341,13 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
       multi_rigid_tracker_->updatePoses(img_gray_tracker);
     else
       multi_rigid_tracker_->updatePoses(img_gray_tracker, cv_depth_ptr->image);
+
+    std::string dir_name = "/home/seasponge/Workspace/random_trees_with_simtrack/data/json_ar_flow_data/";
+    std::string outnamex = dir_name + "X/" + std::to_string(frame_count_);
+    std::string outnamey = dir_name + "Y/" + std::to_string(frame_count_);
+    // Write to json file
+    multi_rigid_tracker_->writeSerializedARFlowX2JSON(outnamex);
+    multi_rigid_tracker_->writeSerializedARFlowY2JSON(outnamey);
 
     // publish reliable poses
     std::vector<geometry_msgs::Pose> poses =

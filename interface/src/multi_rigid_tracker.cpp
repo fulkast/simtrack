@@ -42,7 +42,6 @@
 #include <hdf5.h>
 
 using namespace util;
-using nlohmann::json;
 
 namespace interface {
 
@@ -73,6 +72,8 @@ MultiRigidTracker::MultiRigidTracker(int image_width, int image_height,
   d_optical_flow_ = std::unique_ptr<vision::D_OpticalAndARFlow>{
     new vision::D_OpticalAndARFlow(*d_float_frame_, parameters_flow)
   };
+
+  ARFlowBuffer.resize(image_width_*image_height_);
 
   double nodal_point_x = camera_matrix.at<double>(0, 2);
   double nodal_point_y = camera_matrix.at<double>(1, 2);
@@ -112,6 +113,30 @@ void MultiRigidTracker::setCameraMatrix(cv::Mat camera_matrix) {
 void MultiRigidTracker::setCameraPose(
     const pose::TranslationRotation3D &camera_pose) {
   d_multiple_rigid_poses_->setCameraPose(camera_pose);
+}
+
+void MultiRigidTracker::writeSerializedARFlowX2JSON(std::string filename) const
+{
+  std::vector<float> output(image_width_*image_height_);
+  cudaMemcpy(&output[0], d_optical_flow_->getARFlowX().data(),
+             image_width_ * image_height_ * sizeof(float),
+             cudaMemcpyDeviceToHost);
+   nlohmann::json jx;
+   jx["data"] = output;
+   std::ofstream ox(filename);
+   ox << jx << std::endl;
+}
+
+void MultiRigidTracker::writeSerializedARFlowY2JSON(std::string filename) const
+{
+  std::vector<float> output(image_width_*image_height_);
+  cudaMemcpy(&output[0], d_optical_flow_->getARFlowX().data(),
+             image_width_ * image_height_ * sizeof(float),
+             cudaMemcpyDeviceToHost);
+   nlohmann::json jx;
+   jx["data"] = output;
+   std::ofstream ox(filename);
+   ox << jx << std::endl;
 }
 
 void MultiRigidTracker::setObjects(std::vector<ObjectInfo> objects) {
@@ -396,32 +421,6 @@ cv::Mat MultiRigidTracker::generateOutputImage(OutputImageType image_type) {
     cudaMemcpy(texture.data, d_flow_x_rgba_->data(),
                image_width_ * image_height_ * sizeof(uchar4),
                cudaMemcpyDeviceToHost);
-
-    cv::Mat storeoutput = cv::Mat::zeros(image_height_, image_width_, CV_32FC1);
-    std::vector<float> outputdata(image_height_*image_width_);
-    cudaMemcpy(&outputdata[0], d_optical_flow_->getARFlowX().data(),
-               image_width_ * image_height_ * sizeof(float),
-               cudaMemcpyDeviceToHost);
-    json j;
-    std::cout << "image height" << image_height_ << std::endl;
-    j["data"] = outputdata;
-    std::ofstream o("/home/seasponge/Desktop/cv_arflow.json");
-    o << j << std::endl;
-
-    cv::Mat nan_mask = cv::Mat(storeoutput != storeoutput);
-
-    cv::bitwise_not(nan_mask, nan_mask);
-    nan_mask.convertTo(nan_mask, CV_32FC1);
-    // std::cout << "before " << storeoutput << std::endl;
-    storeoutput = storeoutput & nan_mask;
-    // std::cout << "after " << storeoutput << std::endl;
-    std::cout << storeoutput.type() << std::endl;
-    cv::FileStorage file("/home/seasponge/Desktop/cv_arflow.yml", cv::FileStorage::WRITE);
-
-    // Write to file!
-    file << "data" << storeoutput;
-
-    // cv::imwrite("/home/seasponge/Desktop/cv_arflow.png",cv::Mat(image_height_, image_width_, CV_32FC1,storeoutput));
     break;
   }
   case OutputImageType::optical_flow_y:

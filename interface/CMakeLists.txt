@@ -4,6 +4,7 @@ project(interface)
 SET(CMAKE_CXX_COMPILER gcc-4.9)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib/gcc/x86_64-linux-gnu/4.9.4/libstdc++.so")
 
+
 find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   cv_bridge

@@ -120,6 +120,10 @@ public:
     return d_multiple_rigid_poses_->getBoundingBoxesInCameraImage();
   }
 
+  void writeSerializedARFlowX2JSON(std::string filename) const;
+
+  void writeSerializedARFlowY2JSON(std::string filename) const;
+
   bool isPoseReliable(int object_index);
 
   bool areAllPosesReliable();
@@ -150,5 +154,6 @@ private:
   util::Device2D<float>::Ptr d_prev_float_frame_, d_disparity_;
   util::Device1D<float>::Ptr d_flow_ar_x_tmp_, d_flow_ar_y_tmp_;
   util::Device1D<uchar4>::Ptr d_flow_x_rgba_, d_flow_y_rgba_;
+  std::vector<float> ARFlowBuffer;
 };
 }
