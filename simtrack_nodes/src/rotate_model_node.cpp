@@ -330,8 +330,10 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
       for (auto &pose : poses)
       {
         double T[3] = {0,0,0.3};
-        pose.setT(T);
-        pose.rotateY(dir * 3);
+        double R[3] = {0,1,0};
+        pose.setR(R);
+        // pose.setT(T);
+        pose.translateY(-1 * 0.01);
       }
       multi_rigid_tracker_->setPoses(poses);
     }
@@ -343,11 +345,14 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
       multi_rigid_tracker_->updatePoses(img_gray_tracker, cv_depth_ptr->image);
 
     std::string dir_name = "/home/seasponge/Workspace/random_trees_with_simtrack/data/json_ar_flow_data/";
-    std::string outnamex = dir_name + "X/" + std::to_string(frame_count_);
-    std::string outnamey = dir_name + "Y/" + std::to_string(frame_count_);
+    std::string outnamex = dir_name + "X/" + std::to_string(frame_count_) + ".json";
+    std::string outnamey = dir_name + "Y/" + std::to_string(frame_count_) + ".json";
+    std::string outnamemask = dir_name + "Mask/" + std::to_string(frame_count_) + ".json";
+
     // Write to json file
     multi_rigid_tracker_->writeSerializedARFlowX2JSON(outnamex);
     multi_rigid_tracker_->writeSerializedARFlowY2JSON(outnamey);
+    multi_rigid_tracker_->writeSerializedObjMask(outnamemask);
 
     // publish reliable poses
     std::vector<geometry_msgs::Pose> poses =

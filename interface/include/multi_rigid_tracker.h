@@ -124,6 +124,8 @@ public:
 
   void writeSerializedARFlowY2JSON(std::string filename) const;
 
+  void writeSerializedObjMask(std::string filename) const;
+
   bool isPoseReliable(int object_index);
 
   bool areAllPosesReliable();
