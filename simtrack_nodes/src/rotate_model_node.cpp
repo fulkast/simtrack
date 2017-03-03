@@ -176,8 +176,8 @@ bool RotateModel::start() {
   }
 
   rgb_it_.reset(new image_transport::ImageTransport(nh_));
-  sub_rgb_.subscribe(*rgb_it_, "rgb", 2, rgb_hint);
-  sub_rgb_info_.subscribe(nh_, "rgb_info", 2);
+  sub_rgb_.subscribe(*rgb_it_, "rgb", 100, rgb_hint);
+  sub_rgb_info_.subscribe(nh_, "rgb_info", 100);
 
   if (color_only_mode_) {
     sync_rgb_.reset(
@@ -280,7 +280,7 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     {
 
       constBackground =
-        cv::imread("/home/seasponge/Workspace/catkin_ws/src/simtrack/data/backgrounds/IMG_558916.jpg",
+        cv::imread("/home/seasponge/Workspace/catkin_local_ws/src/simtrack/data/backgrounds/IMG_558916.jpg",
                     0);
       cv::resize(constBackground, constBackground, img_gray_tracker.size());
       // cv::Mat(img_gray_tracker.rows,img_gray_tracker.cols,
@@ -288,7 +288,7 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
       // cv::randu(constBackground,0,255);
 
     }
-    img_gray_tracker = constBackground;
+    // img_gray_tracker = constBackground;
   #endif
 
   // initialize tracker engine if not yet active
@@ -333,7 +333,7 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
         double R[3] = {0,1,0};
         pose.setR(R);
         // pose.setT(T);
-        pose.translateY(-1 * 0.01);
+        pose.translateZ(-1 * 0.0005);
       }
       multi_rigid_tracker_->setPoses(poses);
     }
@@ -345,14 +345,14 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
       multi_rigid_tracker_->updatePoses(img_gray_tracker, cv_depth_ptr->image);
 
     std::string dir_name = "/home/seasponge/Workspace/random_trees_with_simtrack/data/json_ar_flow_data/";
-    std::string outnamex = dir_name + "X/" + std::to_string(frame_count_) + ".json";
-    std::string outnamey = dir_name + "Y/" + std::to_string(frame_count_) + ".json";
-    std::string outnamemask = dir_name + "Mask/" + std::to_string(frame_count_) + ".json";
+    std::string outnamex = dir_name + "X/data/" + std::to_string(frame_count_) + ".json";
+    std::string outnamey = dir_name + "Y/data/" + std::to_string(frame_count_) + ".json";
+    std::string outnamemask = dir_name + "Mask/data/" + std::to_string(frame_count_) + ".json";
 
     // Write to json file
-    multi_rigid_tracker_->writeSerializedARFlowX2JSON(outnamex);
-    multi_rigid_tracker_->writeSerializedARFlowY2JSON(outnamey);
-    multi_rigid_tracker_->writeSerializedObjMask(outnamemask);
+    //multi_rigid_tracker_->writeSerializedARFlowX2JSON(outnamex);
+    //multi_rigid_tracker_->writeSerializedARFlowY2JSON(outnamey);
+    //multi_rigid_tracker_->writeSerializedObjMask(outnamemask);
 
     // publish reliable poses
     std::vector<geometry_msgs::Pose> poses =
