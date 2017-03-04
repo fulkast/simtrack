@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 2.8.7)
 project(interface)
 
-SET(CMAKE_CXX_COMPILER gcc-4.9)
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib/gcc/x86_64-linux-gnu/4.9.4/libstdc++.so")
+SET(CMAKE_CXX_COMPILER g++-4.9)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++")
+
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib/gcc/x86_64-linux-gnu/4.9.4/libstdc++.so")
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -10,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   low_level_vision
   pose_estimation
+  roscpp
 )
 
 find_package(OpenCV 3.0.0 REQUIRED)
@@ -50,6 +53,22 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
 )
 
+
+add_executable(cmd_line_generate_icosahedron_views
+  src/icosahedron.cpp)
+
+target_link_libraries(cmd_line_generate_icosahedron_views
+${PROJECT_NAME}
+)
+
+add_executable(cmd_line_optical_flow
+  src/cmd_line_optical_flow.cpp
+)
+target_link_libraries(cmd_line_optical_flow
+  ${PROJECT_NAME}
+)
+
+
 if(FALSE)
 
 add_executable(cmd_line_generate_sift_model
@@ -59,12 +78,7 @@ target_link_libraries(cmd_line_generate_sift_model
   ${PROJECT_NAME}
 )
 
-add_executable(cmd_line_optical_flow
-  src/cmd_line_optical_flow.cpp
-)
-target_link_libraries(cmd_line_optical_flow
-  ${PROJECT_NAME}
-)
+
 
 add_executable(cmd_line_render
   src/cmd_line_render.cpp
