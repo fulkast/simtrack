@@ -5,6 +5,11 @@
 #include <translation_rotation_3d.h>
 #include <multi_rigid_tracker.h>
 #include <d_optical_and_ar_flow.h>
+#include <windowless_gl_context.h>
+#include <utilities.h>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 #include <iostream>
 #include <vector>
@@ -94,6 +99,12 @@ int main(int argc, char const *argv[]) {
   int n_points_azimuth;
   int n_points_altitude;
 
+  // initialize cuda and gl context for the renderer
+  // Create dummy GL context before cudaGL init
+  render::WindowLessGLContext dummy(10, 10);
+  // CUDA Init
+  util::initializeCUDARuntime(0);
+
   do {
     std::cout << "Enter a radius in mm units (-1 to quit): ";
     radius = getIntInput();
@@ -108,30 +119,66 @@ int main(int argc, char const *argv[]) {
     auto latitudes = generateUniformPoints(3.14/2.,-3.14/2., 10);
 
     // initialize tracker data
-    vision::D_OpticalAndARFlow::Parameters parameters_flow_;
-    pose::D_MultipleRigidPoses::Parameters parameters_pose_;
-    float camera_matrix_data[12] = { 525.0,   0.0, 319.5, 0.0,
-                                       0.0, 525.0, 239.5, 0.0,
+    float camera_matrix_data[12] = { 525.0/2.,   0.0, 319.5/2., 0.0,
+                                       0.0, 525.0/2., 239.5/2., 0.0,
                                        0.0,   0.0,   1.0, 0.0 };
-
-    cv::Mat camera_matrix = cv::Mat(4, 3, CV_32F, camera_matrix_data);
+    cv::Mat camera_matrix = cv::Mat(4, 3, CV_64F, camera_matrix_data);
     std::vector<interface::MultiRigidTracker::ObjectInfo>
       object(1, interface::MultiRigidTracker::ObjectInfo(
       "ikeaMug",
-      "/home/seasponge/Workspace/catkin_local_ws/src/simtrack-flow-writer/data/object_models/ikeaMug/ikeaMug.obj"));
-    int image_width = 640, image_height = 480;
+      "/home/seasponge/Workspace/catkin_local_ws/src/simtrack-flow-writer/data/object_models/texturedMug/texturedMug.obj"));
+    int image_width = 320, image_height = 240;
+    // initialize tracker
+    interface::MultiRigidTracker::Ptr tracker_ptr;
+    tracker_ptr =
+        interface::MultiRigidTracker::Ptr(new interface::MultiRigidTracker(
+            image_width, image_height,
+            camera_matrix, object));
 
-    interface::MultiRigidTracker(image_width,image_height,camera_matrix,object);
+    // feed input image to tracker
+    cv::Mat input_image;
+    input_image =
+    cv::imread("/home/seasponge/Workspace/DartExample/video/color/color00000.png", CV_LOAD_IMAGE_GRAYSCALE);
 
-    for (int i = 0; i < latitudes.size(); i++) {
-      float latitude  = 0.0;//latitudes[0];
-      float longitude = longitudes[i];
-      pose::TranslationRotation3D test_pose = getCenterPointingPose(radius,
-                                                  latitude, longitude);
-      std::cout << "latitude: " << latitude << " longitude: " << longitude
-      << std::endl;
-      test_pose.show();
+    // overwrite object poses
+    auto poses = tracker_ptr->getPoses();
+    double T[3] = {0,0,1.0};
+    double R[3] = {0,1,0};
+    for (auto &pose : poses)
+    {
+      pose.setT(T);
+      pose.setR(R);
     }
+    tracker_ptr->setPoses(poses);
+
+    // show poses
+    tracker_ptr->getPoses().at(0).show();
+
+    // simulate 3 static frames
+    tracker_ptr->updatePoses(input_image);
+        tracker_ptr->updatePoses(input_image);
+            tracker_ptr->updatePoses(input_image);
+
+
+    // view output from tracker
+    cv::Mat output_image =
+      tracker_ptr->generateOutputImage(interface::MultiRigidTracker::OutputImageType::model_appearance);
+
+    cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );// Create a window for display.
+    cv::imshow( "Display window", output_image );   // Show our image inside it.
+
+    cv::waitKey(0);                       // Wait for a keystroke in the window
+
+
+    // for (int i = 0; i < latitudes.size(); i++) {
+    //   float latitude  = 0.0;//latitudes[0];
+    //   float longitude = longitudes[i];
+    //   pose::TranslationRotation3D test_pose = getCenterPointingPose(radius,
+    //                                               latitude, longitude);
+    //   std::cout << "latitude: " << latitude << " longitude: " << longitude
+    //   << std::endl;
+    //   test_pose.show();
+    // }
 
 
   } while (radius != -1);

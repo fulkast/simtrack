@@ -68,6 +68,13 @@ target_link_libraries(cmd_line_optical_flow
   ${PROJECT_NAME}
 )
 
+add_executable(cmd_line_render_scene_simple
+  src/cmd_line_render_scene_simple.cpp
+)
+target_link_libraries(cmd_line_render_scene_simple
+  ${PROJECT_NAME}
+)
+
 
 if(FALSE)
 
@@ -77,8 +84,6 @@ add_executable(cmd_line_generate_sift_model
 target_link_libraries(cmd_line_generate_sift_model
   ${PROJECT_NAME}
 )
-
-
 
 add_executable(cmd_line_render
   src/cmd_line_render.cpp
