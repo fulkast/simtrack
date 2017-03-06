@@ -355,8 +355,8 @@ void MultiRigidTracker::computePoseUpdate() {
 
   d_multiple_rigid_poses_->setPoses(old_dense_poses);
 
-  std::cout << "dense poses: " << std::endl;
-  old_dense_poses[0].show();
+  // std::cout << "dense poses: " << std::endl;
+  // old_dense_poses[0].show();
 
   // compute sparse ar flow
   vision::augmentedRealityFloatArraySelectiveBlend(
