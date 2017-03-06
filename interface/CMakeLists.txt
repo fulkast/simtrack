@@ -47,12 +47,12 @@ include_directories(
 add_library(${PROJECT_NAME}
   src/multi_rigid_tracker.cpp
   src/multi_rigid_detector.cpp
+  include/poses_on_icosahedron.h
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
-
 
 add_executable(cmd_line_generate_icosahedron_views
   src/icosahedron.cpp)

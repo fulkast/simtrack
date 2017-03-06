@@ -42,6 +42,7 @@
 #include <device_1d.h>
 #include <multiple_rigid_models_ogre.h>
 #include <utility_kernels_pose.h>
+#include <poses_on_icosahedron.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -55,7 +56,6 @@ int main(int argc, char **argv) {
   /* INPUT */
   /*********/
 
-  // create files
 
   // read object(s) state
   std::vector<pose::TranslationRotation3D> object_poses;
@@ -65,8 +65,8 @@ int main(int argc, char **argv) {
   int n_objects = 1;
   {
     for (int i = 0; i < n_objects; i++) {
-      double T[3] = {0,0,1.0};
-      double R[3] = {0,1,0};
+      double T[3] = {0,0,0.0};
+      double R[3] = {0,0,0};
       pose::TranslationRotation3D pose;
       pose.setT(T);
       pose.setR(R);
@@ -132,47 +132,60 @@ int main(int argc, char **argv) {
     rigid_objects.push_back(std::move(rigid_object));
   }
 
-  // render
-  Ogre::Vector3 camera_position = Ogre::Vector3(0.0,0.0,0.0);
-  Ogre::Quaternion camera_orientation = Ogre::Quaternion::IDENTITY;
+  // create icosahedron
+  UniformGridOnIcosahedron ico(10, 10, 1);
 
-  // convert vision (Z-forward) frame to ogre frame (Z-out)
-  camera_orientation =
-      camera_orientation *
-      Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
+  ico.showGridPoints();
 
-  render::OgreMultiRenderTarget ogre_multi_render_target(
-      "scene", width, height, ogre_context.scene_manager_);
-  ogre_multi_render_target.updateCamera(camera_position, camera_orientation,
-                                        projection_matrix);
-  ogre_multi_render_target.render();
+  auto camera_poses = ico.getCameraPoses();
 
-  /**********/
-  /* OUTPUT */
-  /**********/
-  std::vector<cudaArray **> cuda_arrays;
-  int n_arrays = 6;
-  for (int i = 0; i < n_arrays; i++)
-    cuda_arrays.push_back(new cudaArray *);
+  for (auto camera_pose : camera_poses) {
 
-  std::vector<int> out_size{ height, width };
-  std::vector<float> h_out(height * width);
+    // render
+    // Ogre::Vector3 camera_position = Ogre::Vector3(0.0,0.0,-1.0);
+    // Ogre::Quaternion camera_orientation = Ogre::Quaternion::IDENTITY;
 
-  ogre_multi_render_target.mapCudaArrays(cuda_arrays);
+    Ogre::Vector3 camera_position = camera_pose.ogreTranslation();
+    Ogre::Quaternion camera_orientation = camera_pose.ogreRotation();
 
-  cv::Mat texture = cv::Mat::zeros(height, width, CV_8UC4);
+    // convert vision (Z-forward) frame to ogre frame (Z-out)
+    camera_orientation =
+        camera_orientation *
+        Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
 
-  cudaMemcpyFromArray(texture.data, *cuda_arrays.at(5), 0, 0,
-                      width * height * sizeof(float), cudaMemcpyDeviceToHost);
+    render::OgreMultiRenderTarget ogre_multi_render_target(
+        "scene", width, height, ogre_context.scene_manager_);
+    ogre_multi_render_target.updateCamera(camera_position, camera_orientation,
+                                          projection_matrix);
+    ogre_multi_render_target.render();
 
-  cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );// Create a window for display.
-  cv::imshow( "Display window", texture );   // Show our image inside it.
+    /**********/
+    /* OUTPUT */
+    /**********/
+    std::vector<cudaArray **> cuda_arrays;
+    int n_arrays = 6;
+    for (int i = 0; i < n_arrays; i++)
+      cuda_arrays.push_back(new cudaArray *);
 
-  cv::waitKey(0);                       // Wait for a keystroke in the window
+    std::vector<int> out_size{ height, width };
+    std::vector<float> h_out(height * width);
+
+    ogre_multi_render_target.mapCudaArrays(cuda_arrays);
+
+    cv::Mat texture = cv::Mat::zeros(height, width, CV_8UC4);
+
+    cudaMemcpyFromArray(texture.data, *cuda_arrays.at(5), 0, 0,
+                        width * height * sizeof(float), cudaMemcpyDeviceToHost);
+
+    cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );// Create a window for display.
+    cv::imshow( "Display window", texture );   // Show our image inside it.
+
+    cv::waitKey(0);                       // Wait for a keystroke in the window
 
 
 
-  ogre_multi_render_target.unmapCudaArrays();
+    ogre_multi_render_target.unmapCudaArrays();
+  }
 
 
   return EXIT_SUCCESS;
