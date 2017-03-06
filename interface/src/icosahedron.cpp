@@ -3,6 +3,8 @@
 // the origin. The spread of the positions is uniform along the longitudes
 // and the latitudes. The orientation always points towards the origin.
 #include <translation_rotation_3d.h>
+#include <multi_rigid_tracker.h>
+#include <d_optical_and_ar_flow.h>
 
 #include <iostream>
 #include <vector>
@@ -104,6 +106,22 @@ int main(int argc, char const *argv[]) {
     // generate coordinate points
     auto longitudes  = generateUniformPoints(0,2*3.14, 10);
     auto latitudes = generateUniformPoints(3.14/2.,-3.14/2., 10);
+
+    // initialize tracker data
+    vision::D_OpticalAndARFlow::Parameters parameters_flow_;
+    pose::D_MultipleRigidPoses::Parameters parameters_pose_;
+    float camera_matrix_data[12] = { 525.0,   0.0, 319.5, 0.0,
+                                       0.0, 525.0, 239.5, 0.0,
+                                       0.0,   0.0,   1.0, 0.0 };
+
+    cv::Mat camera_matrix = cv::Mat(4, 3, CV_32F, camera_matrix_data);
+    std::vector<interface::MultiRigidTracker::ObjectInfo>
+      object(1, interface::MultiRigidTracker::ObjectInfo(
+      "ikeaMug",
+      "/home/seasponge/Workspace/catkin_local_ws/src/simtrack-flow-writer/data/object_models/ikeaMug/ikeaMug.obj"));
+    int image_width = 640, image_height = 480;
+
+    interface::MultiRigidTracker(image_width,image_height,camera_matrix,object);
 
     for (int i = 0; i < latitudes.size(); i++) {
       float latitude  = 0.0;//latitudes[0];
