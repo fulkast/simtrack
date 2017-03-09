@@ -56,7 +56,6 @@ int main(int argc, char **argv) {
   /* INPUT */
   /*********/
 
-
   // read object(s) state
   std::vector<pose::TranslationRotation3D> object_poses;
   std::vector<std::string> obj_file_names
