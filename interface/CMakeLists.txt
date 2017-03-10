@@ -75,6 +75,12 @@ target_link_libraries(cmd_line_render_scene_simple
   ${PROJECT_NAME}
 )
 
+add_executable(cmd_line_render_cam_poses
+  src/cmd_line_render_cam_poses.cpp
+)
+target_link_libraries(cmd_line_render_cam_poses
+  ${PROJECT_NAME}
+)
 
 if(FALSE)
 
