@@ -40,7 +40,7 @@ void printIterableInline(T container) {
 // radius of the icosahedron. It lists all the 3-D points on the grid.
 class UniformGridOnIcosahedron {
 public:
-  UniformGridOnIcosahedron(int n_lat, int n_lon, float rad = 1)
+  UniformGridOnIcosahedron(int n_lat, int n_lon, float rad = 1.0)
     : n_lat_(n_lat), n_lon_(n_lon), rad_(rad) {
     generateCoordsOnGrid(n_lat_, n_lon_, rad_);
     generateOriginPointingCamPoses();
@@ -147,7 +147,8 @@ protected:
   std::vector<pose::TranslationRotation3D> camera_poses;
 private:
   // grid resolution and size variables
-  int n_lat_, n_lon_, rad_;
+  int n_lat_, n_lon_;
+  float rad_;
 };
 //
 // int main(int argc, char const *argv[]) {
