@@ -82,6 +82,13 @@ target_link_libraries(cmd_line_render_cam_poses
   ${PROJECT_NAME}
 )
 
+add_executable(cmd_line_perturb_obj_pose_random
+  src/cmd_line_perturb_obj_pose_random.cpp
+)
+target_link_libraries(cmd_line_perturb_obj_pose_random
+  ${PROJECT_NAME}
+)
+
 if(FALSE)
 
 add_executable(cmd_line_generate_sift_model
