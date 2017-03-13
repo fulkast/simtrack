@@ -87,7 +87,7 @@ Ogre::Matrix4 generateProjectionMatrix(int width, int height, cv::Mat camera_mat
    \return "Return of the function"
 */
 
-  std::vector<std::unique_ptr<render::RigidObject> > setRigidObjects(
+  std::vector<std::unique_ptr<render::RigidObject> > getRigidObjects(
         std::vector<string> obj_file_names,
         std::vector<pose::TranslationRotation3D> object_poses,
         const render::OgreContext& ogre_context) {
@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
   /***********/
 
   render::OgreContext ogre_context;
-  setRigidObjects(obj_file_names, object_poses, ogre_context);
+  auto rigid_objects = getRigidObjects(obj_file_names, object_poses, ogre_context);
 
   // create icosahedron
   UniformGridOnIcosahedron ico(10, 10, 1);
