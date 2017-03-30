@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <random>
 #include <stdexcept>
 #include <opencv2/opencv.hpp>
 #include <unordered_map>
@@ -43,9 +44,13 @@
 #include <multiple_rigid_models_ogre.h>
 #include <utility_kernels_pose.h>
 #include <poses_on_icosahedron.h>
+#include <multi_rigid_tracker.h>
+#include <utilities.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+
+#include <json.hpp>
 
 /*!
    \brief Return the camera projection matrix
@@ -108,78 +113,9 @@ Ogre::Matrix4 generateProjectionMatrix(int width, int height, cv::Mat camera_mat
   return rigid_objects;
 }
 
-int main(int argc, char **argv) {
+cv::Mat getScene(int width, int height,
+                render::OgreMultiRenderTarget& ogre_multi_render_target ) {
 
-  // Render objects. Object and camera poses are expressed
-
-  /*********/
-  /* INPUT */
-  /*********/
-
-  // read object(s) state
-  std::vector<pose::TranslationRotation3D> object_poses;
-  std::vector<std::string> obj_file_names
-  (1,"/home/seasponge/Workspace/catkin_local_ws/src/simtrack-flow-writer/data/object_models/texturedMug/texturedMug.obj");
-
-  int n_objects = 1;
-  {
-    for (int i = 0; i < n_objects; i++) {
-      double T[3] = {0,0,0.0};
-      double R[3] = {0,0,0};
-      pose::TranslationRotation3D pose;
-      pose.setT(T);
-      pose.setR(R);
-      //    pose.show();
-      object_poses.push_back(pose);
-    }
-  }
-
-  bool show_robot = false;
-
-  int width = 320;
-  int height = 240;
-
-  cv::Mat camera_matrix;
-  {
-    std::vector<int> size;
-    std::vector<double> data {525.0/2.,   0.0, 319.5/2., 0.0,
-                                       0.0, 525.0/2., 239.5/2., 0.0,
-                                       0.0,   0.0,   1.0, 0.0 };
-    camera_matrix = cv::Mat(3, 4, CV_64FC1, data.data()).clone();
-  }
-
-  auto projection_matrix = generateProjectionMatrix(width, height, camera_matrix);
-
-  /***********/
-  /* PROCESS */
-  /***********/
-
-  render::OgreContext ogre_context;
-  auto rigid_objects = getRigidObjects(obj_file_names, object_poses, ogre_context);
-
-  // create icosahedron
-  UniformGridOnIcosahedron ico(10, 10, 1);
-
-  // get scene at object initial pose
-  auto camera_poses = ico.getCameraPoses();
-
-  auto camera_pose = camera_poses[0];
-  Ogre::Vector3 camera_position = camera_pose.ogreTranslation();
-  Ogre::Quaternion camera_orientation = camera_pose.ogreRotation();
-
-  // convert vision (Z-forward) frame to ogre frame (Z-out)
-  camera_orientation =
-      camera_orientation *
-      Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
-
-  render::OgreMultiRenderTarget ogre_multi_render_target(
-      "scene", width, height, ogre_context.scene_manager_);
-  ogre_multi_render_target.updateCamera(camera_position, camera_orientation,
-                                        projection_matrix);
-
-
-
-  ogre_multi_render_target.render();
   std::vector<cudaArray **> cuda_arrays;
   int n_arrays = 6;
   for (int i = 0; i < n_arrays; i++)
@@ -190,58 +126,184 @@ int main(int argc, char **argv) {
 
   ogre_multi_render_target.mapCudaArrays(cuda_arrays);
 
-  cv::Mat initial_scene = cv::Mat::zeros(height, width, CV_8UC4);
+  cv::Mat scene = cv::Mat::zeros(height, width, CV_8UC4);
 
-  cudaMemcpyFromArray(initial_scene.data, *cuda_arrays.at(5), 0, 0,
+  cudaMemcpyFromArray(scene.data, *cuda_arrays.at(4), 0, 0,
                       width * height * sizeof(float), cudaMemcpyDeviceToHost);
 
   ogre_multi_render_target.unmapCudaArrays();
-
-
-  for (auto camera_pose : camera_poses) {
-    Ogre::Vector3 camera_position = camera_pose.ogreTranslation();
-    Ogre::Quaternion camera_orientation = camera_pose.ogreRotation();
-
-    // convert vision (Z-forward) frame to ogre frame (Z-out)
-    camera_orientation =
-        camera_orientation *
-        Ogre::Quaternion(Ogre::Degree(180), Ogre::Vector3::UNIT_X);
-    ogre_multi_render_target.updateCamera(camera_position, camera_orientation,
-                                          projection_matrix);
-
-
-    // render
-    ogre_multi_render_target.render();
-
-    /**********/
-    /* OUTPUT */
-    /**********/
-    std::vector<cudaArray **> cuda_arrays;
-    int n_arrays = 6;
-    for (int i = 0; i < n_arrays; i++)
-      cuda_arrays.push_back(new cudaArray *);
-
-    std::vector<int> out_size{ height, width };
-    std::vector<float> h_out(height * width);
-
-    ogre_multi_render_target.mapCudaArrays(cuda_arrays);
-
-    cv::Mat texture = cv::Mat::zeros(height, width, CV_8UC4);
-
-    cudaMemcpyFromArray(texture.data, *cuda_arrays.at(5), 0, 0,
-                        width * height * sizeof(float), cudaMemcpyDeviceToHost);
-
-    cv::Mat output;
-    cv::hconcat(initial_scene,texture,output);
-    cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );// Create a window for display.
-    cv::imshow( "Display window", output );   // Show our image inside it.
-
-    cv::waitKey(0);                       // Wait for a keystroke in the window
+  return scene;
+}
 
 
 
-    ogre_multi_render_target.unmapCudaArrays();
-  }
+
+int main(int argc, char **argv) {
+
+    /*********/
+    /* INPUT */
+    /*********/
+
+    std::string save_dir =
+    "/home/seasponge/Workspace/random_trees_with_simtrack/data/json-flow-vector-data/";
+
+    vision::D_OpticalAndARFlow::Parameters flow_parameters;
+    pose::D_MultipleRigidPoses::Parameters pose_parameters;
+
+    pose_parameters.w_disp_ = 0.0;
+  //  pose_parameters.w_flow_ = 0.0;
+    pose_parameters.w_flow_ = 1.0;
+    flow_parameters.consistent_ = false;
+    pose_parameters.check_reliability_ = false;
+
+    std::vector<std::string> tracker_filenames{
+      "/home/seasponge/Workspace/catkin_local_ws/src/simtrack-flow-writer/data/object_models/texturedMug/texturedMug.obj"
+    };
+
+    std::vector<pose::TranslationRotation3D> object_poses;
+
+    int n_objects = 1;
+
+    pose::TranslationRotation3D initial_object_pose;
+    {
+      for (int i = 0; i < n_objects; i++) {
+        double T[3] = {0,0,0.0};
+        double R[3] = {0,0,0};
+        initial_object_pose.setT(T);
+        initial_object_pose.setR(R);
+        //    pose.show();
+        object_poses.push_back(initial_object_pose);
+      }
+    }
+    std::vector<pose::TranslationRotation3D>initial_poses(1,
+                                                          initial_object_pose);
+
+    int width = 320;
+    int height = 240;
+
+    cv::Mat camera_matrix;
+    {
+      std::vector<int> size;
+      std::vector<double> data {525.0/2.,   0.0, 319.5/2., 0.0,
+                                         0.0, 525.0/2., 239.5/2., 0.0,
+                                         0.0,   0.0,   1.0, 0.0 };
+      camera_matrix = cv::Mat(3, 4, CV_64FC1, data.data()).clone();
+    }
+
+
+    /***********/
+    /* PROCESS */
+    /***********/
+
+    int device_id = 0;
+    util::initializeCUDARuntime(device_id);
+
+    std::vector<interface::MultiRigidTracker::ObjectInfo> object_info;
+    for (int i = 0; i < n_objects; ++i)
+      object_info.push_back(interface::MultiRigidTracker::ObjectInfo(
+          "dummy_label", tracker_filenames.at(i)));
+
+    interface::MultiRigidTracker tracker(width, height, camera_matrix,
+                                         object_info, flow_parameters,
+                                         pose_parameters);
+    tracker.setPoses(object_poses);
+    double T[3] = {0,0,-.3};
+    double R[3] = {0,0,0};
+    pose::TranslationRotation3D cam_pose;
+    cam_pose.setT(T);
+    cam_pose.setR(R);
+    tracker.setCameraPose(cam_pose);
+    cv::Mat image;
+    image =
+    cv::imread("/home/seasponge/Workspace/DartExample/video/color/color00000.png", CV_LOAD_IMAGE_GRAYSCALE);
+    tracker.updatePoses(image);
+
+    // get initial image
+    cv::Mat initial_appearance = tracker.generateOutputImage(
+        interface::MultiRigidTracker::OutputImageType::
+            model_appearance_blended);
+
+    cv::Mat initial_mask = tracker.getGrayObjectMask();
+    cv::normalize(initial_mask, initial_mask, 0, 1, cv::NORM_MINMAX);
+
+    std::vector<uchar> initial_mask_vector_data = tracker.getObjectMaskVector();
+    std::vector<float> initial_mask_vector(initial_mask_vector_data.size());
+
+    for (int i = 0; i < initial_mask_vector.size(); i++)
+      initial_mask_vector[i] = (isnan(initial_mask_vector_data[i]) ||
+                                  initial_mask_vector_data[i] == 0) ? 0.0 : 1.0;
+
+    std::default_random_engine generator;
+    std::uniform_real_distribution<double> distribution(-30./180.*3.14,
+                                                         30./180.*3.14);
+
+
+    for (size_t i = 0; i < 200; ++i) {
+
+      double random_x = distribution(generator);
+      {
+        for (int i = 0; i < n_objects; i++) {
+          double T[3] = {0,0,0.0};
+          double R[3] = {random_x,0,0};
+          pose::TranslationRotation3D pose;
+          pose.setT(T);
+          pose.setR(R);
+          //    pose.show();
+          object_poses[i] = pose;
+        }
+      }
+
+      tracker.setPoses(object_poses);
+      tracker.updatePoses(image);
+
+      cv::Mat perturbed_appearance = tracker.generateOutputImage(
+          interface::MultiRigidTracker::OutputImageType::
+              model_appearance);
+
+      cv::putText(perturbed_appearance, "X:" + std::to_string(random_x),
+          cvPoint(30,30),
+          cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8,cvScalar(200,200,250), 1, CV_AA);
+
+      cv::Mat perturbed_flow = tracker.generateOutputImage(
+          interface::MultiRigidTracker::OutputImageType::
+              optical_flow_y);
+
+      cv::multiply(initial_mask, perturbed_flow, perturbed_flow);
+      // std::cout << perturbed_appearance << std::endl;
+      std::vector<float> masked_flow_vector(initial_mask_vector.size());
+      std::vector<float> flow_y_vector = tracker.getFloatFlowYVector();
+      std::transform( flow_y_vector.begin()+1, flow_y_vector.end(),
+                initial_mask_vector.begin()+1, masked_flow_vector.begin(),  // assumes v1,v2 of same size > 1,
+                                          //       v one element smaller
+                std::multiplies<float>() );
+
+      float aggregate = std::accumulate(flow_y_vector.begin(), flow_y_vector.end(),
+                                      0.0, [](float a, float b) {
+                                        return isnan(b) ? a : a += b;
+                                      });
+      std::cout << "average flow: " << aggregate/flow_y_vector.size() << std::endl;
+      nlohmann::json jx;
+      string filename = save_dir + "frame" + std::to_string(i) + ".json";
+      jx["masked_flow_vector"] = masked_flow_vector;
+      jx["perturbed_x"] = random_x;
+      std::ofstream ox(filename);
+      ox << jx << std::endl;
+
+      cv::Mat output_image;
+      cv::hconcat(initial_mask, perturbed_appearance, output_image);
+      cv::hconcat(output_image, perturbed_flow, output_image);
+      cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );// Create a window for display.
+      cv::imshow( "Display window", output_image );   // Show our image inside it.
+
+      cv::waitKey(0);                       // Wait for a keystroke in the window
+
+
+      // reset to initial object pose
+      tracker.setPoses(initial_poses);
+      tracker.updatePoses(image);
+
+    }
+
 
 
   return EXIT_SUCCESS;

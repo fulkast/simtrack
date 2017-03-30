@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.7)
 project(interface)
 
-SET(CMAKE_CXX_COMPILER g++-4.9)
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++")
+SET(CMAKE_CXX_COMPILER /usr/bin/g++-4.9)
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++")
 
 #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib/gcc/x86_64-linux-gnu/4.9.4/libstdc++.so")
 
@@ -46,13 +46,15 @@ include_directories(
 
 add_library(${PROJECT_NAME}
   src/multi_rigid_tracker.cpp
-  src/multi_rigid_detector.cpp
+  #src/multi_rigid_detector.cpp
   include/poses_on_icosahedron.h
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
+
+
 
 add_executable(cmd_line_generate_icosahedron_views
   src/icosahedron.cpp)

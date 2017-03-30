@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   interface
 )
 
+find_package(HDF5 COMPONENTS CXX)
 find_package(OpenCV 3.0.0 REQUIRED)
 find_package(Eigen REQUIRED)
 add_definitions(${EIGEN_DEFINITIONS})
@@ -61,15 +62,16 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME}
-  src/pr2_cam_switch_node.cpp
   src/multi_rigid_node.cpp
   src/rotate_model_node.cpp
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
+  ${HDF5_LIBRARIES}
 )
 
+if(FALSE)
 add_executable(multi_rigid_node
   src/multi_rigid_node_main.cpp
 )
@@ -85,6 +87,7 @@ add_executable(pr2_cam_switch_node
 target_link_libraries(pr2_cam_switch_node
   ${PROJECT_NAME}
 )
+endif()
 
 add_executable(rotate_model_node
   src/rotate_model_main.cpp

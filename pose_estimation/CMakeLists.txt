@@ -49,7 +49,7 @@ include_directories(include
 
 cuda_add_library(${PROJECT_NAME}
   src/d_multiple_rigid_poses.cpp
-  src/d_multiple_rigid_pose_sparse.cpp
+  #src/d_multiple_rigid_pose_sparse.cpp
   src/multiple_rigid_models_ogre.cpp
   src/multiple_rigid_pose_kernels.cu
   src/translation_rotation_3d.cpp

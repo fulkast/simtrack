@@ -17,6 +17,7 @@ find_package(orocos_kdl REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLEW REQUIRED glew)
 
+
 pkg_check_modules(OGRE_OV OGRE OGRE-Overlay)
 
 # Old versions of OGRE (pre 1.9) included OGRE-Overlay in the main package
@@ -33,6 +34,8 @@ execute_process(COMMAND
   OUTPUT_STRIP_TRAILING_WHITESPACE
   )
 #message(STATUS "OGRE_PLUGIN_PATH=${OGRE_PLUGIN_PATH}")
+
+
 
 # Build the version number and other build-time constants into the
 # source for access at run-time.

@@ -46,6 +46,7 @@ RigidObject::RigidObject(std::string file_name,
                          Ogre::SceneManager *scene_manager, int segment_ind)
     : segment_ind_{ segment_ind }, scene_manager_{ scene_manager } {
   Ogre::MeshPtr object_mesh = render::loadMeshFromResource(file_name);
+  std::cout << "creating entity with: " << file_name << std::endl;
   entity_ = scene_manager_->createEntity(file_name);
   Ogre::MaterialPtr mat =
       Ogre::MaterialManager::getSingleton().getByName("textured");

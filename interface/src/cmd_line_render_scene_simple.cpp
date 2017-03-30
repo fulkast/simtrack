@@ -117,6 +117,7 @@ int main(int argc, char **argv) {
 
   // configure objects (if any)
   std::vector<std::unique_ptr<render::RigidObject> > rigid_objects;
+  std::vector<float> points;
 
   for (int o = 0; o < n_objects; o++) {
     int segment_ind = o + 1;
@@ -130,9 +131,14 @@ int main(int argc, char **argv) {
                           object_poses.at(o).ogreRotation());
     rigid_objects.push_back(std::move(rigid_object));
   }
+  std::cout << rigid_objects[0]->getNPositions() << std::endl;
+  points = rigid_objects[0]->getPositions();
+  for (int i = 0; i <rigid_objects[0]->getNPositions(); i++ ) {
+    std::cout << points [i] << " " << points [i+1] << " " << points [i+2] << std::endl;
+  }
 
   // create icosahedron
-  UniformGridOnIcosahedron ico(10, 10, 1);
+  UniformGridOnIcosahedron ico(10, 10, 1.0);
 
   ico.showGridPoints();
 
@@ -173,8 +179,26 @@ int main(int argc, char **argv) {
 
     cv::Mat texture = cv::Mat::zeros(height, width, CV_8UC4);
 
+    std::vector<float> seg_index_data(width * height, 0.0);
+
     cudaMemcpyFromArray(texture.data, *cuda_arrays.at(5), 0, 0,
                         width * height * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // 3D keypoints (project on z-buffer)
+    util::Device1D<float> d_z(height * width);
+    pose::convertZbufferToZ(d_z.data(), *cuda_arrays.at(3), width, height,
+                            cx, cy, near_plane, far_plane);
+    std::vector<float> z_buffer_data(height * width);
+    d_z.copyTo(z_buffer_data);
+    cudaMemcpyFromArray(seg_index_data.data(), *cuda_arrays.at(4), 0, 0,
+                        width * height * sizeof(float), cudaMemcpyDeviceToHost);
+
+
+    for (int i = 0 ; i < z_buffer_data.size(); i++) {
+      if (seg_index_data[i] != 0) {
+        std::cout << z_buffer_data[i] << std::endl;
+      }
+    }
 
     cv::namedWindow( "Display window", cv::WINDOW_AUTOSIZE );// Create a window for display.
     cv::imshow( "Display window", texture );   // Show our image inside it.

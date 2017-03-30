@@ -7,9 +7,9 @@
   <param name="simtrack/model_path" value="$(find simtrack_nodes)/../data/object_models"/>
 
   <node name="rotate_model" pkg="simtrack_nodes" type="rotate_model_node" output="screen">
-  <remap from="rgb" to="/camera/rgb/image_raw" />
+  <remap from="rgb" to="/wide_stereo/left/image_rect" />
   <remap from="rgb/compressed" to="/camera/rgb/image_rect_color/compressed/" />
-  <remap from="rgb_info" to="/camera/rgb/camera_info" />
+  <remap from="rgb_info" to="/wide_stereo/left/camera_info" />
   <remap from="depth" to="/camera/depth_registered/image_raw" />
   <remap from="depth/compressedDepth" to="/camera/depth_registered/image_raw/compressedDepth" />
   </node>

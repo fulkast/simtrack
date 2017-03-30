@@ -34,6 +34,9 @@
 #include <OgreRoot.h>
 #include <OgreRenderWindow.h>
 #include <OgreSceneManager.h>
+#include <Ogre.h>
+ #include <OgreTextAreaOverlayElement.h>
+ #include <OgreFontManager.h> 
 
 namespace render {
 

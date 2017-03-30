@@ -203,6 +203,7 @@ bool RotateModel::start() {
   dynamic_reconfigure_server_.setCallback(f);
 
   frame_count_ = 0;
+  ROS_INFO("started");
   return true;
 }
 
@@ -222,14 +223,17 @@ void RotateModel::depthAndColorCb(
 void RotateModel::colorOnlyCb(
     const sensor_msgs::ImageConstPtr &rgb_msg,
     const sensor_msgs::CameraInfoConstPtr &rgb_info_msg) {
+
+  ROS_INFO("color callback");
+
   // we'll assume registration is correct so that rgb and depth camera matrices
   // are equal
   camera_matrix_rgb_ = composeCameraMatrix(rgb_info_msg);
 
-  ROS_INFO("color callback");
 
   cv_bridge::CvImageConstPtr cv_rgb_ptr, cv_depth_ptr;
   try {
+    ROS_INFO("rgb cv bridge ptr");
     if (rgb_msg->encoding == "8UC1") // fix for kinect2 mono output
       cv_rgb_ptr = cv_bridge::toCvShare(rgb_msg);
     else
@@ -239,7 +243,7 @@ void RotateModel::colorOnlyCb(
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
   }
-
+  ROS_INFO("update pose");
   updatePose(cv_rgb_ptr, cv_depth_ptr, rgb_msg->header.frame_id);
 }
 
@@ -253,6 +257,8 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
   if (cv_rgb_ptr->image.type() != CV_8UC1)
     throw std::runtime_error("RotateModel::updatePose: image type "
                              "should be CV_8UC1\n");
+
+ROS_INFO("updating pose");
 
   // full frame rate for tracking
   cv::Mat img_gray_tracker;
@@ -280,7 +286,7 @@ void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     {
 
       constBackground =
-        cv::imread("/home/seasponge/Workspace/catkin_local_ws/src/simtrack/data/backgrounds/IMG_558916.jpg",
+        cv::imread("/home/seasponge/Workspace/catkin_local_ws/src/simtrack-flow-writer/data/backgrounds/IMG_558916.jpg",
                     0);
       cv::resize(constBackground, constBackground, img_gray_tracker.size());
       // cv::Mat(img_gray_tracker.rows,img_gray_tracker.cols,
@@ -545,6 +551,7 @@ cv::Mat RotateModel::composeCameraMatrix(
       cv::Mat(3, 4, CV_64F, (void *)info_msg->P.data()).clone();
   camera_matrix.at<double>(0, 2) -= info_msg->roi.x_offset;
   camera_matrix.at<double>(1, 2) -= info_msg->roi.y_offset;
+
   return (camera_matrix);
 }
 

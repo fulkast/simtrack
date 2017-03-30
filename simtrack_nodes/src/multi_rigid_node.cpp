@@ -56,59 +56,59 @@ void MultiRigidNode::detectorThreadFunction(cv::Mat camera_matrix, size_t width,
                                             size_t height) {
 
   // initialize CUDA in detector thread
-  util::initializeCUDARuntime(device_id_detector_);
-
-  int detector_object_index = 0;
-
-  multi_rigid_detector_ =
-      interface::MultiRigidDetector::Ptr(new interface::MultiRigidDetector(
-          width, height, camera_matrix, obj_filenames_, device_id_detector_,
-          parameters_detector_));
-
-  while (!shutdown_detector_.load()) {
-
-    if (detector_enabled_.load()) {
-
-      // update selected objects if new objects selected
-      if (switched_detector_objects_.load()) {
-        {
-          std::lock_guard<std::mutex> lock(obj_filenames_mutex_);
-          multi_rigid_detector_->setObjects(obj_filenames_);
-        }
-        detector_object_index = 0;
-        switched_detector_objects_.store(false);
-      }
-
-      // estimate pose if objects loaded in detector
-      if (multi_rigid_detector_->getNumberOfObjects() > 0) {
-
-        // process frame
-        cv::Mat img_gray;
-        {
-          std::lock_guard<std::mutex> lock(img_gray_detector_mutex_);
-          img_gray = img_gray_detector_.clone();
-        }
-        pose::TranslationRotation3D detector_pose;
-        multi_rigid_detector_->estimatePose(img_gray, detector_object_index,
-                                            detector_pose);
-
-        // transmit pose to tracker
-        {
-          std::lock_guard<std::mutex> lock(most_recent_detector_pose_mutex_);
-          most_recent_detector_object_index_ = detector_object_index;
-          most_recent_detector_pose_ = detector_pose;
-        }
-
-        // select next object to detect
-        detector_object_index = (detector_object_index + 1) %
-                                multi_rigid_detector_->getNumberOfObjects();
-
-      } else {
-        // reduce load on this thread when no objects selected
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-      }
-    }
-  }
+  // util::initializeCUDARuntime(device_id_detector_);
+  //
+  // int detector_object_index = 0;
+  //
+  // multi_rigid_detector_ =
+  //     interface::MultiRigidDetector::Ptr(new interface::MultiRigidDetector(
+  //         width, height, camera_matrix, obj_filenames_, device_id_detector_,
+  //         parameters_detector_));
+  //
+  // while (!shutdown_detector_.load()) {
+  //
+  //   if (detector_enabled_.load()) {
+  //
+  //     // update selected objects if new objects selected
+  //     if (switched_detector_objects_.load()) {
+  //       {
+  //         std::lock_guard<std::mutex> lock(obj_filenames_mutex_);
+  //         multi_rigid_detector_->setObjects(obj_filenames_);
+  //       }
+  //       detector_object_index = 0;
+  //       switched_detector_objects_.store(false);
+  //     }
+  //
+  //     // estimate pose if objects loaded in detector
+  //     if (multi_rigid_detector_->getNumberOfObjects() > 0) {
+  //
+  //       // process frame
+  //       cv::Mat img_gray;
+  //       {
+  //         std::lock_guard<std::mutex> lock(img_gray_detector_mutex_);
+  //         img_gray = img_gray_detector_.clone();
+  //       }
+  //       pose::TranslationRotation3D detector_pose;
+  //       multi_rigid_detector_->estimatePose(img_gray, detector_object_index,
+  //                                           detector_pose);
+  //
+  //       // transmit pose to tracker
+  //       {
+  //         std::lock_guard<std::mutex> lock(most_recent_detector_pose_mutex_);
+  //         most_recent_detector_object_index_ = detector_object_index;
+  //         most_recent_detector_pose_ = detector_pose;
+  //       }
+  //
+  //       // select next object to detect
+  //       detector_object_index = (detector_object_index + 1) %
+  //                               multi_rigid_detector_->getNumberOfObjects();
+  //
+  //     } else {
+  //       // reduce load on this thread when no objects selected
+  //       std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  //     }
+  //   }
+  // }
 }
 
 MultiRigidNode::MultiRigidNode(ros::NodeHandle nh)

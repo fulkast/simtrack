@@ -139,8 +139,43 @@ void MultiRigidTracker::writeSerializedARFlowY2JSON(std::string filename) const
    ox << jx << std::endl;
 }
 
-void MultiRigidTracker::writeSerializedObjMask(std::string filename) const
+std::vector<float> MultiRigidTracker::getFloatFlowYVector() const
 {
+  std::vector<float> output(image_width_*image_height_);
+  cudaMemcpy(&output[0], d_optical_flow_->getARFlowY().data(),
+             image_width_ * image_height_ * sizeof(float),
+             cudaMemcpyDeviceToHost);
+  return output;
+}
+
+std::vector<uchar> MultiRigidTracker::getObjectMaskVector() const
+{
+  cv::Mat output = cv::Mat::zeros(image_height_, image_width_, CV_8UC4);
+  d_multiple_rigid_poses_->setRenderStateChanged(true);
+  vision::convertFloatArrayToGrayRGBA(d_flow_x_rgba_->data(),
+                                      d_multiple_rigid_poses_->getTexture(),
+                                      image_width_, image_height_, 0, 1.);
+  // funnelling uchar4 into float? can this be better?
+  cudaMemcpy(output.data, d_flow_x_rgba_->data(),
+             image_width_ * image_height_ * sizeof(uchar4),
+             cudaMemcpyDeviceToHost);
+
+  cv::cvtColor(output, output, cv::COLOR_BGR2GRAY);
+  // funnelling uchar to float
+  // std::cout << output << std::endl;
+  std::vector<uchar> array;
+  if (output.isContinuous()) {
+   array.assign(output.datastart, output.dataend);
+  } else {
+   for (int i = 0; i < output.rows; ++i) {
+     array.insert(array.end(), output.ptr<uchar>(i), output.ptr<uchar>(i)+output.cols);
+   }
+  }
+
+  return array;
+}
+
+cv::Mat MultiRigidTracker::getGrayObjectMask() const {
   cv::Mat output = cv::Mat::zeros(image_height_, image_width_, CV_8UC4);
   d_multiple_rigid_poses_->setRenderStateChanged(true);
   vision::convertFloatArrayToGrayRGBA(d_flow_x_rgba_->data(),
@@ -150,6 +185,12 @@ void MultiRigidTracker::writeSerializedObjMask(std::string filename) const
   cudaMemcpy(output.data, d_flow_x_rgba_->data(),
              image_width_ * image_height_ * sizeof(uchar4),
              cudaMemcpyDeviceToHost);
+  return output;
+}
+
+void MultiRigidTracker::writeSerializedObjMask(std::string filename) const
+{
+  cv::Mat output = getGrayObjectMask();
   cv::cvtColor(output, output, cv::COLOR_BGR2GRAY);
   std::cout << "mask output type " << output.type() << std::endl;
   std::vector<uchar> array;

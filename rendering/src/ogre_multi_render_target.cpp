@@ -58,9 +58,15 @@ OgreMultiRenderTarget::OgreMultiRenderTarget(std::string name, int width,
             Ogre::TEX_TYPE_2D, width, height, 0, format, Ogre::TU_RENDERTARGET);
 
     // Register for CUDA interop
-    GLuint id = static_cast<Ogre::GLTexturePtr>(rtt_texture)->getGLID();
-    GLenum target =
-        static_cast<Ogre::GLTexturePtr>(rtt_texture)->getGLTextureTarget();
+    // GLuint id = static_cast<Ogre::GLTexturePtr>(rtt_texture)->getGLID();
+    // GLenum target =
+    //     static_cast<Ogre::GLTexturePtr>(rtt_texture)->getGLTextureTarget();
+
+    auto gl_texture_ptr = rtt_texture.staticCast<Ogre::GLTexture>();
+    GLuint id = gl_texture_ptr->getGLID();
+    GLenum target = gl_texture_ptr->getGLTextureTarget();
+    // GLuint id = rtt_texture.staticCast<Ogre::GLTexturePtr>()->getGLID();
+    // GLenum target = rtt_texture.staticCast<Ogre::GLTexturePtr>()->getGLTextureTarget();
 
     //    std::cout << "before register: " <<
     // cudaGetErrorString(cudaGetLastError()) << std::endl;

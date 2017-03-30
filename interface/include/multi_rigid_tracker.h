@@ -82,6 +82,12 @@ public:
 
   std::vector<pose::TranslationRotation3D> getPoses() const;
 
+  std::vector<float> getFloatFlowYVector() const;
+
+  std::vector<uchar> getObjectMaskVector() const;
+
+  cv::Mat getGrayObjectMask() const;
+
   int getNumberOfObjects();
 
   Ogre::SceneManager *getSceneManager() {
