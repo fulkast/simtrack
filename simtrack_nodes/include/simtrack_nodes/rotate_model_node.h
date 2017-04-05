@@ -55,11 +55,11 @@
 
 namespace simtrack {
 
-class MultiRigidNode {
+class RotateModel {
 public:
-  MultiRigidNode(ros::NodeHandle nh);
+  RotateModel(ros::NodeHandle nh);
 
-  ~MultiRigidNode();
+  ~RotateModel();
 
   bool start();
 
@@ -183,6 +183,8 @@ private:
       sensor_msgs::Image, sensor_msgs::CameraInfo> SyncPolicyRGB;
   typedef message_filters::Synchronizer<SyncPolicyRGB> SynchronizerRGB;
   boost::shared_ptr<SynchronizerRGB> sync_rgb_;
+
+  cv::Mat constBackground;
 };
 
 } // end namespace simtrack

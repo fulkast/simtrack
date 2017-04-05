@@ -199,7 +199,7 @@ void D_MultipleRigidPoses::addModel(const char *obj_filename, float obj_scale,
   _n_objects++;
   _currentPoses.push_back(initial_pose);
   setSparsePose(initial_pose, _n_objects - 1);
-
+  std::cerr << "ogre adding model" << std::endl;
   _multipleRigidModelsOgre->addModel(obj_filename);
 }
 

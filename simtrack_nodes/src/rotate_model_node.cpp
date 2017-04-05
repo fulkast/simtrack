@@ -40,7 +40,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <simtrack_nodes/multi_rigid_node.h>
+#include <simtrack_nodes/rotate_model_node.h>
 #include <windowless_gl_context.h>
 #undef Success
 #include <Eigen/Geometry>
@@ -50,68 +50,14 @@
 
 using namespace util;
 
+
 namespace simtrack {
 
-void MultiRigidNode::detectorThreadFunction(cv::Mat camera_matrix, size_t width,
+void RotateModel::detectorThreadFunction(cv::Mat camera_matrix, size_t width,
                                             size_t height) {
-
-  // initialize CUDA in detector thread
-  util::initializeCUDARuntime(device_id_detector_);
-
-  int detector_object_index = 0;
-
-  multi_rigid_detector_ =
-      interface::MultiRigidDetector::Ptr(new interface::MultiRigidDetector(
-          width, height, camera_matrix, obj_filenames_, device_id_detector_,
-          parameters_detector_));
-
-  while (!shutdown_detector_.load()) {
-
-    if (detector_enabled_.load()) {
-
-      // update selected objects if new objects selected
-      if (switched_detector_objects_.load()) {
-        {
-          std::lock_guard<std::mutex> lock(obj_filenames_mutex_);
-          multi_rigid_detector_->setObjects(obj_filenames_);
-        }
-        detector_object_index = 0;
-        switched_detector_objects_.store(false);
-      }
-
-      // estimate pose if objects loaded in detector
-      if (multi_rigid_detector_->getNumberOfObjects() > 0) {
-
-        // process frame
-        cv::Mat img_gray;
-        {
-          std::lock_guard<std::mutex> lock(img_gray_detector_mutex_);
-          img_gray = img_gray_detector_.clone();
-        }
-        pose::TranslationRotation3D detector_pose;
-        multi_rigid_detector_->estimatePose(img_gray, detector_object_index,
-                                            detector_pose);
-
-        // transmit pose to tracker
-        {
-          std::lock_guard<std::mutex> lock(most_recent_detector_pose_mutex_);
-          most_recent_detector_object_index_ = detector_object_index;
-          most_recent_detector_pose_ = detector_pose;
-        }
-
-        // select next object to detect
-        detector_object_index = (detector_object_index + 1) %
-                                multi_rigid_detector_->getNumberOfObjects();
-
-      } else {
-        // reduce load on this thread when no objects selected
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-      }
-    }
-  }
 }
 
-MultiRigidNode::MultiRigidNode(ros::NodeHandle nh)
+RotateModel::RotateModel(ros::NodeHandle nh)
     : nh_(nh), device_id_detector_(0), most_recent_detector_object_index_(0),
       detector_enabled_(true), shutdown_detector_(false), ready_(false),
       output_image_(
@@ -122,13 +68,13 @@ MultiRigidNode::MultiRigidNode(ros::NodeHandle nh)
   // get model names from parameter server
   if (!ros::param::get("/simtrack/model_path", model_path_))
     throw std::runtime_error(
-        std::string("MultiRigidNode::MultiRigidNode: could not "
+        std::string("RotateModel::RotateModel: could not "
                     "find /simtrack/model_path on parameter server\n"));
 
   std::vector<std::string> model_names;
   if (!ros::param::get("/simtrack/model_names", model_names))
     throw std::runtime_error(
-        std::string("MultiRigidNode::MultiRigidNode: could not "
+        std::string("RotateModel::RotateModel: could not "
                     "find /simtrack/model_names on parameter server\n"));
 
   for (auto &it : model_names) {
@@ -138,50 +84,50 @@ MultiRigidNode::MultiRigidNode(ros::NodeHandle nh)
         nh.advertise<geometry_msgs::PoseStamped>("/simtrack/" + it, 1);
   }
 
-  // get optical flow parameters
-  ros::param::get("simtrack/optical_flow/n_scales", parameters_flow_.n_scales_);
-  ros::param::get("simtrack/optical_flow/median_filter",
-                  parameters_flow_.median_filter_);
-  ros::param::get("simtrack/optical_flow/consistent",
-                  parameters_flow_.consistent_);
-  ros::param::get("simtrack/optical_flow/cons_thres",
-                  parameters_flow_.cons_thres_);
-  ros::param::get("simtrack/optical_flow/four_orientations",
-                  parameters_flow_.four_orientations_);
 
-  // get pose tracker parameters
-  ros::param::get("simtrack/tracker/color_only_mode", color_only_mode_);
-  ros::param::get("simtrack/tracker/n_icp_outer_it",
-                  parameters_pose_.n_icp_outer_it_);
-  ros::param::get("simtrack/tracker/n_icp_inner_it",
-                  parameters_pose_.n_icp_inner_it_);
-  ros::param::get("simtrack/tracker/w_flow", parameters_pose_.w_flow_);
-  ros::param::get("simtrack/tracker/w_ar_flow", parameters_pose_.w_ar_flow_);
-  ros::param::get("simtrack/tracker/w_disp", parameters_pose_.w_disp_);
-  ros::param::get("simtrack/tracker/max_samples",
-                  parameters_pose_.max_samples_);
-  int key_bits = parameters_pose_.getKeyBits();
-  ros::param::get("simtrack/tracker/key_bits", key_bits);
-  parameters_pose_.setKeyBits(key_bits);
-  ros::param::get("simtrack/tracker/near_plane", parameters_pose_.near_plane_);
-  ros::param::get("simtrack/tracker/far_plane", parameters_pose_.far_plane_);
-  ros::param::get("simtrack/tracker/reliability_threshold",
-                  parameters_pose_.reliability_threshold_);
-  ros::param::get("simtrack/tracker/max_proportion_projected_bounding_box",
-                  parameters_pose_.max_proportion_projected_bounding_box_);
-  ros::param::get("simtrack/tracker/sparse_intro_reliability_threshold",
-                  parameters_pose_.sparse_intro_reliability_threshold_);
-  ros::param::get("simtrack/tracker/sparse_intro_allowed_reliability_decrease",
-                  parameters_pose_.sparse_intro_allowed_reliability_decrease_);
-  ros::param::get("simtrack/tracker/max_t_update_norm_squared",
-                  parameters_pose_.max_t_update_norm_squared_);
+    // get optical flow parameters
+    ros::param::get("simtrack/optical_flow/n_scales", parameters_flow_.n_scales_);
+    ros::param::get("simtrack/optical_flow/median_filter",
+                    parameters_flow_.median_filter_);
+    ros::param::get("simtrack/optical_flow/consistent",
+                    parameters_flow_.consistent_);
+    ros::param::get("simtrack/optical_flow/cons_thres",
+                    parameters_flow_.cons_thres_);
+    ros::param::get("simtrack/optical_flow/four_orientations",
+                    parameters_flow_.four_orientations_);
 
-  // get detector parameters
-  ros::param::get("simtrack/detector/device_id", device_id_detector_);
-  ros::param::get("simtrack/detector/vec_size", parameters_detector_.vec_size_);
-  ros::param::get("simtrack/detector/num_iter_ransac",
-                  parameters_detector_.num_iter_ransac_);
+    // get pose tracker parameters
+    ros::param::get("simtrack/tracker/color_only_mode", color_only_mode_);
+    ros::param::get("simtrack/tracker/n_icp_outer_it",
+                    parameters_pose_.n_icp_outer_it_);
+    ros::param::get("simtrack/tracker/n_icp_inner_it",
+                    parameters_pose_.n_icp_inner_it_);
+    ros::param::get("simtrack/tracker/w_flow", parameters_pose_.w_flow_);
+    ros::param::get("simtrack/tracker/w_ar_flow", parameters_pose_.w_ar_flow_);
+    ros::param::get("simtrack/tracker/w_disp", parameters_pose_.w_disp_);
+    ros::param::get("simtrack/tracker/max_samples",
+                    parameters_pose_.max_samples_);
+    int key_bits = parameters_pose_.getKeyBits();
+    ros::param::get("simtrack/tracker/key_bits", key_bits);
+    parameters_pose_.setKeyBits(key_bits);
+    ros::param::get("simtrack/tracker/near_plane", parameters_pose_.near_plane_);
+    ros::param::get("simtrack/tracker/far_plane", parameters_pose_.far_plane_);
+    ros::param::get("simtrack/tracker/reliability_threshold",
+                    parameters_pose_.reliability_threshold_);
+    ros::param::get("simtrack/tracker/max_proportion_projected_bounding_box",
+                    parameters_pose_.max_proportion_projected_bounding_box_);
+    ros::param::get("simtrack/tracker/sparse_intro_reliability_threshold",
+                    parameters_pose_.sparse_intro_reliability_threshold_);
+    ros::param::get("simtrack/tracker/sparse_intro_allowed_reliability_decrease",
+                    parameters_pose_.sparse_intro_allowed_reliability_decrease_);
+    ros::param::get("simtrack/tracker/max_t_update_norm_squared",
+                    parameters_pose_.max_t_update_norm_squared_);
 
+    // get detector parameters
+    ros::param::get("simtrack/detector/device_id", device_id_detector_);
+    ros::param::get("simtrack/detector/vec_size", parameters_detector_.vec_size_);
+    ros::param::get("simtrack/detector/num_iter_ransac",
+                    parameters_detector_.num_iter_ransac_);
   /*****************************/
   /* Setup CUDA for GL interop */
   /*****************************/
@@ -201,7 +147,7 @@ MultiRigidNode::MultiRigidNode(ros::NodeHandle nh)
   ready_ = true;
 }
 
-MultiRigidNode::~MultiRigidNode() {
+RotateModel::~RotateModel() {
   // cleanly shutdown detector thread (if running)
   if (detector_thread_ != nullptr) {
     shutdown_detector_.store(true);
@@ -209,13 +155,13 @@ MultiRigidNode::~MultiRigidNode() {
   }
 }
 
-bool MultiRigidNode::start() {
+bool RotateModel::start() {
   if (!ready_) {
     return false;
   }
-
+  ROS_INFO("STARTING ROTATEMODEL");
   switch_objects_srv_ = nh_.advertiseService(
-      "/simtrack/switch_objects", &MultiRigidNode::switchObjects, this);
+      "/simtrack/switch_objects", &RotateModel::switchObjects, this);
 
   bool compressed_streams = false;
   ros::param::get("simtrack/use_compressed_streams", compressed_streams);
@@ -230,14 +176,14 @@ bool MultiRigidNode::start() {
   }
 
   rgb_it_.reset(new image_transport::ImageTransport(nh_));
-  sub_rgb_.subscribe(*rgb_it_, "rgb", 2, rgb_hint);
-  sub_rgb_info_.subscribe(nh_, "rgb_info", 2);
+  sub_rgb_.subscribe(*rgb_it_, "rgb", 100, rgb_hint);
+  sub_rgb_info_.subscribe(nh_, "rgb_info", 100);
 
   if (color_only_mode_) {
     sync_rgb_.reset(
         new SynchronizerRGB(SyncPolicyRGB(5), sub_rgb_, sub_rgb_info_));
     sync_rgb_->registerCallback(
-        boost::bind(&MultiRigidNode::colorOnlyCb, this, _1, _2));
+        boost::bind(&RotateModel::colorOnlyCb, this, _1, _2));
     ROS_INFO("registered synchronizer policy");
   } else {
     depth_it_.reset(new image_transport::ImageTransport(nh_));
@@ -245,7 +191,7 @@ bool MultiRigidNode::start() {
     sync_rgbd_.reset(new SynchronizerRGBD(SyncPolicyRGBD(5), sub_depth_,
                                           sub_rgb_, sub_rgb_info_));
     sync_rgbd_->registerCallback(
-        boost::bind(&MultiRigidNode::depthAndColorCb, this, _1, _2, _3));
+        boost::bind(&RotateModel::depthAndColorCb, this, _1, _2, _3));
   }
 
   debug_img_it_.reset(new image_transport::ImageTransport(nh_));
@@ -253,26 +199,27 @@ bool MultiRigidNode::start() {
 
   dynamic_reconfigure::Server<simtrack_nodes::VisualizationConfig>::CallbackType
   f;
-  f = boost::bind(&MultiRigidNode::reconfigureCb, this, _1, _2);
+  f = boost::bind(&RotateModel::reconfigureCb, this, _1, _2);
   dynamic_reconfigure_server_.setCallback(f);
 
+  frame_count_ = 0;
   return true;
 }
 
-bool MultiRigidNode::switchObjects(simtrack_nodes::SwitchObjectsRequest &req,
+bool RotateModel::switchObjects(simtrack_nodes::SwitchObjectsRequest &req,
                                    simtrack_nodes::SwitchObjectsResponse &res) {
 
   return true;
 }
 
-void MultiRigidNode::depthAndColorCb(
+void RotateModel::depthAndColorCb(
     const sensor_msgs::ImageConstPtr &depth_msg,
     const sensor_msgs::ImageConstPtr &rgb_msg,
     const sensor_msgs::CameraInfoConstPtr &rgb_info_msg) {
 
 }
 
-void MultiRigidNode::colorOnlyCb(
+void RotateModel::colorOnlyCb(
     const sensor_msgs::ImageConstPtr &rgb_msg,
     const sensor_msgs::CameraInfoConstPtr &rgb_info_msg) {
   // we'll assume registration is correct so that rgb and depth camera matrices
@@ -296,34 +243,17 @@ void MultiRigidNode::colorOnlyCb(
   updatePose(cv_rgb_ptr, cv_depth_ptr, rgb_msg->header.frame_id);
 }
 
-void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
+void RotateModel::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
                                 const cv_bridge::CvImageConstPtr &cv_depth_ptr,
                                 const std::string &frame_id) {
   if ((!color_only_mode_) && (cv_depth_ptr == nullptr))
-    throw std::runtime_error("MultiRigidNode::updatePose: received "
+    throw std::runtime_error("RotateModel::updatePose: received "
                              "nullptr depth while not in color_only_mode_\n");
 
   if (cv_rgb_ptr->image.type() != CV_8UC1)
-    throw std::runtime_error("MultiRigidNode::updatePose: image type "
+    throw std::runtime_error("RotateModel::updatePose: image type "
                              "should be CV_8UC1\n");
 
-  // initialize detector thread if not yet active
-  // the engine is created here since we need camera info
-  // if (detector_thread_ == nullptr) {
-  //   detector_thread_ = std::unique_ptr<std::thread>(new std::thread(
-  //       &MultiRigidNode::detectorThreadFunction, this, camera_matrix_rgb_,
-  //       cv_rgb_ptr->image.cols, cv_rgb_ptr->image.rows));
-  // }
-
-  // copy the image for the detector (if running)
-  // if (detector_enabled_.load()) {
-  //   std::lock_guard<std::mutex> lock(img_gray_detector_mutex_);
-  //   img_gray_detector_ = cv_rgb_ptr->image.clone();
-  // }
-
-  // rescale tracker image and adjust camera matrix if size differs from depth
-  // image, in this case the depth image size will dominate the conversion, this
-  // allows for using a high-res image for detection while still maintaining
   // full frame rate for tracking
   cv::Mat img_gray_tracker;
   cv::Mat camera_matrix_rgb_tracker = camera_matrix_rgb_.clone();
@@ -343,6 +273,24 @@ void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
     img_gray_tracker = cv_rgb_ptr->image;
   }
 
+  // override to pepper nooise matrix
+  #ifdef RGB_ZERO_OVERRIDE
+    ROS_INFO("overriding input rgb data to zeros");
+    if (multi_rigid_tracker_==nullptr)
+    {
+
+      constBackground =
+        cv::imread("/home/seasponge/Workspace/catkin_local_ws/src/simtrack/data/backgrounds/IMG_558916.jpg",
+                    0);
+      cv::resize(constBackground, constBackground, img_gray_tracker.size());
+      // cv::Mat(img_gray_tracker.rows,img_gray_tracker.cols,
+                                // CV_8UC1,cvScalar(50.));
+      // cv::randu(constBackground,0,255);
+
+    }
+    // img_gray_tracker = constBackground;
+  #endif
+
   // initialize tracker engine if not yet active
   // the engine is created here since we need camera info
   if (multi_rigid_tracker_ == nullptr) {
@@ -351,6 +299,15 @@ void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
             img_gray_tracker.cols, img_gray_tracker.rows,
             camera_matrix_rgb_tracker, objects_, parameters_flow_,
             parameters_pose_));
+// set initial pose
+    auto poses = multi_rigid_tracker_->getPoses();
+    double T[3] = {0,0,1.0};
+    double R[3] = {0,1,0};
+    for (auto &pose : poses)
+    {
+      pose.setT(T);
+      pose.setR(R);
+    }
   }
 
   // update selected objects if new objects selected
@@ -363,14 +320,22 @@ void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
   // ------------------------------------------
   if (multi_rigid_tracker_->getNumberOfObjects() > 0) {
 
-    // update detector pose in tracker
+    // rotate object pose
     {
-      std::lock_guard<std::mutex> lock(most_recent_detector_pose_mutex_);
-      if (most_recent_detector_object_index_ <
-          multi_rigid_tracker_->getNumberOfObjects()) {
-        multi_rigid_tracker_->setRigidDetectorPose(
-            most_recent_detector_pose_, most_recent_detector_object_index_);
+      auto poses = multi_rigid_tracker_->getPoses();
+      int period = 10;
+      int dir = (frame_count_ % period);
+      dir = dir < (period/2) ? -1 : 1;
+      ROS_INFO("frame count: %i, direction %i", frame_count_, dir);
+      for (auto &pose : poses)
+      {
+        double T[3] = {0,0,0.3};
+        double R[3] = {0,1,0};
+        pose.setR(R);
+        // pose.setT(T);
+        pose.translateZ(-1 * 0.0005);
       }
+      multi_rigid_tracker_->setPoses(poses);
     }
 
     // update tracker pose
@@ -378,6 +343,16 @@ void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
       multi_rigid_tracker_->updatePoses(img_gray_tracker);
     else
       multi_rigid_tracker_->updatePoses(img_gray_tracker, cv_depth_ptr->image);
+
+    std::string dir_name = "/home/seasponge/Workspace/random_trees_with_simtrack/data/json_ar_flow_data/";
+    std::string outnamex = dir_name + "X/data/" + std::to_string(frame_count_) + ".json";
+    std::string outnamey = dir_name + "Y/data/" + std::to_string(frame_count_) + ".json";
+    std::string outnamemask = dir_name + "Mask/data/" + std::to_string(frame_count_) + ".json";
+
+    // Write to json file
+    //multi_rigid_tracker_->writeSerializedARFlowX2JSON(outnamex);
+    //multi_rigid_tracker_->writeSerializedARFlowY2JSON(outnamey);
+    //multi_rigid_tracker_->writeSerializedObjMask(outnamemask);
 
     // publish reliable poses
     std::vector<geometry_msgs::Pose> poses =
@@ -489,7 +464,7 @@ void MultiRigidNode::updatePose(const cv_bridge::CvImageConstPtr &cv_rgb_ptr,
   frame_count_++;
 }
 
-void MultiRigidNode::reconfigureCb(simtrack_nodes::VisualizationConfig &config,
+void RotateModel::reconfigureCb(simtrack_nodes::VisualizationConfig &config,
                                    uint32_t level) {
   switch (config.visualization) {
   case 0:
@@ -547,7 +522,6 @@ void MultiRigidNode::reconfigureCb(simtrack_nodes::VisualizationConfig &config,
     size = {(int)objects_.size() };
     file.writeArray("object_labels", object_labels, size);
     file.writeArray("object_filenames", object_filenames, size);
-    frame_count_ = 0;
     recording_start_time_ = ros::Time::now();
   }
 
@@ -555,17 +529,17 @@ void MultiRigidNode::reconfigureCb(simtrack_nodes::VisualizationConfig &config,
 }
 
 interface::MultiRigidTracker::ObjectInfo
-MultiRigidNode::composeObjectInfo(std::string model_name) {
+RotateModel::composeObjectInfo(std::string model_name) {
   std::string obj_file_name =
       model_path_ + "/" + model_name + "/" + model_name + ".obj";
   return (interface::MultiRigidTracker::ObjectInfo(model_name, obj_file_name));
 }
 
-std::string MultiRigidNode::composeObjectFilename(std::string model_name) {
+std::string RotateModel::composeObjectFilename(std::string model_name) {
   return (model_path_ + "/" + model_name + "/" + model_name + "_SIFT.h5");
 }
 
-cv::Mat MultiRigidNode::composeCameraMatrix(
+cv::Mat RotateModel::composeCameraMatrix(
     const sensor_msgs::CameraInfoConstPtr &info_msg) {
   cv::Mat camera_matrix =
       cv::Mat(3, 4, CV_64F, (void *)info_msg->P.data()).clone();

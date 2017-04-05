@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   interface
 )
 
-find_package(OpenCV 2.4.8 REQUIRED)
+find_package(OpenCV 3.0.0 REQUIRED)
 find_package(Eigen REQUIRED)
 add_definitions(${EIGEN_DEFINITIONS})
 
@@ -63,6 +63,7 @@ include_directories(
 add_library(${PROJECT_NAME}
   src/pr2_cam_switch_node.cpp
   src/multi_rigid_node.cpp
+  src/rotate_model_node.cpp
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
@@ -82,5 +83,13 @@ add_executable(pr2_cam_switch_node
   src/pr2_cam_switch_node_main.cpp
 )
 target_link_libraries(pr2_cam_switch_node
+  ${PROJECT_NAME}
+)
+
+add_executable(rotate_model_node
+  src/rotate_model_main.cpp
+)
+add_definitions(-DRGB_ZERO_OVERRIDE=1)
+target_link_libraries(rotate_model_node
   ${PROJECT_NAME}
 )

@@ -1,14 +1,21 @@
 cmake_minimum_required(VERSION 2.8.7)
 project(interface)
 
+SET(CMAKE_CXX_COMPILER g++-4.9)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++")
+
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/lib/gcc/x86_64-linux-gnu/4.9.4/libstdc++.so")
+
+
 find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   cv_bridge
   low_level_vision
   pose_estimation
+  roscpp
 )
 
-find_package(OpenCV 2.4.8 REQUIRED)
+find_package(OpenCV 3.0.0 REQUIRED)
 find_package(Eigen REQUIRED)
 add_definitions(${EIGEN_DEFINITIONS})
 
@@ -40,23 +47,54 @@ include_directories(
 add_library(${PROJECT_NAME}
   src/multi_rigid_tracker.cpp
   src/multi_rigid_detector.cpp
+  include/poses_on_icosahedron.h
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
 
-add_executable(cmd_line_generate_sift_model
-  src/cmd_line_generate_sift_model.cpp
-)
-target_link_libraries(cmd_line_generate_sift_model
-  ${PROJECT_NAME}
+add_executable(cmd_line_generate_icosahedron_views
+  src/icosahedron.cpp)
+
+target_link_libraries(cmd_line_generate_icosahedron_views
+${PROJECT_NAME}
 )
 
 add_executable(cmd_line_optical_flow
   src/cmd_line_optical_flow.cpp
 )
 target_link_libraries(cmd_line_optical_flow
+  ${PROJECT_NAME}
+)
+
+add_executable(cmd_line_render_scene_simple
+  src/cmd_line_render_scene_simple.cpp
+)
+target_link_libraries(cmd_line_render_scene_simple
+  ${PROJECT_NAME}
+)
+
+add_executable(cmd_line_render_cam_poses
+  src/cmd_line_render_cam_poses.cpp
+)
+target_link_libraries(cmd_line_render_cam_poses
+  ${PROJECT_NAME}
+)
+
+add_executable(cmd_line_perturb_obj_pose_random
+  src/cmd_line_perturb_obj_pose_random.cpp
+)
+target_link_libraries(cmd_line_perturb_obj_pose_random
+  ${PROJECT_NAME}
+)
+
+if(FALSE)
+
+add_executable(cmd_line_generate_sift_model
+  src/cmd_line_generate_sift_model.cpp
+)
+target_link_libraries(cmd_line_generate_sift_model
   ${PROJECT_NAME}
 )
 
@@ -101,3 +139,4 @@ add_executable(cmd_line_track_multi_object
 target_link_libraries(cmd_line_track_multi_object
   ${PROJECT_NAME}
 )
+endif()

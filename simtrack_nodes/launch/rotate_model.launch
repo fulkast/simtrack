@@ -6,7 +6,7 @@
   <rosparam command="load" file="$(find simtrack_nodes)/config/demo_objects.yaml"/>
   <param name="simtrack/model_path" value="$(find simtrack_nodes)/../data/object_models"/>
 
-  <node name="simtrack" pkg="simtrack_nodes" type="multi_rigid_node" output="screen">
+  <node name="rotate_model" pkg="simtrack_nodes" type="rotate_model_node" output="screen">
   <remap from="rgb" to="/camera/rgb/image_raw" />
   <remap from="rgb/compressed" to="/camera/rgb/image_rect_color/compressed/" />
   <remap from="rgb_info" to="/camera/rgb/camera_info" />

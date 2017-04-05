@@ -31,7 +31,9 @@
 /*****************************************************************************/
 
 #include <multi_rigid_tracker.h>
+#include <json.hpp>
 #include <stdexcept>
+#include <fstream>
 #undef Success
 #include <Eigen/Geometry>
 #include <utilities.h>
@@ -70,6 +72,8 @@ MultiRigidTracker::MultiRigidTracker(int image_width, int image_height,
   d_optical_flow_ = std::unique_ptr<vision::D_OpticalAndARFlow>{
     new vision::D_OpticalAndARFlow(*d_float_frame_, parameters_flow)
   };
+
+  ARFlowBuffer.resize(image_width_*image_height_);
 
   double nodal_point_x = camera_matrix.at<double>(0, 2);
   double nodal_point_y = camera_matrix.at<double>(1, 2);
@@ -111,6 +115,57 @@ void MultiRigidTracker::setCameraPose(
   d_multiple_rigid_poses_->setCameraPose(camera_pose);
 }
 
+void MultiRigidTracker::writeSerializedARFlowX2JSON(std::string filename) const
+{
+  std::vector<float> output(image_width_*image_height_);
+  cudaMemcpy(&output[0], d_optical_flow_->getARFlowX().data(),
+             image_width_ * image_height_ * sizeof(float),
+             cudaMemcpyDeviceToHost);
+   nlohmann::json jx;
+   jx["data"] = output;
+   std::ofstream ox(filename);
+   ox << jx << std::endl;
+}
+
+void MultiRigidTracker::writeSerializedARFlowY2JSON(std::string filename) const
+{
+  std::vector<float> output(image_width_*image_height_);
+  cudaMemcpy(&output[0], d_optical_flow_->getARFlowY().data(),
+             image_width_ * image_height_ * sizeof(float),
+             cudaMemcpyDeviceToHost);
+   nlohmann::json jx;
+   jx["data"] = output;
+   std::ofstream ox(filename);
+   ox << jx << std::endl;
+}
+
+void MultiRigidTracker::writeSerializedObjMask(std::string filename) const
+{
+  cv::Mat output = cv::Mat::zeros(image_height_, image_width_, CV_8UC4);
+  d_multiple_rigid_poses_->setRenderStateChanged(true);
+  vision::convertFloatArrayToGrayRGBA(d_flow_x_rgba_->data(),
+                                      d_multiple_rigid_poses_->getTexture(),
+                                      image_width_, image_height_, 0, 0.1);
+  // funnelling uchar4 into float? can this be better?
+  cudaMemcpy(output.data, d_flow_x_rgba_->data(),
+             image_width_ * image_height_ * sizeof(uchar4),
+             cudaMemcpyDeviceToHost);
+  cv::cvtColor(output, output, cv::COLOR_BGR2GRAY);
+  std::cout << "mask output type " << output.type() << std::endl;
+  std::vector<uchar> array;
+  if (output.isContinuous()) {
+    array.assign(output.datastart, output.dataend);
+  } else {
+    for (int i = 0; i < output.rows; ++i) {
+      array.insert(array.end(), output.ptr<uchar>(i), output.ptr<uchar>(i)+output.cols);
+    }
+  }
+  nlohmann::json jx;
+  jx["data"] = array;
+  std::ofstream ox(filename);
+  ox << jx << std::endl;
+}
+
 void MultiRigidTracker::setObjects(std::vector<ObjectInfo> objects) {
   double T[]{ 0.1, 0.1, 0.5 };
   double R[]{ 0.78, 0.0, 0.0 };
@@ -120,6 +175,17 @@ void MultiRigidTracker::setObjects(std::vector<ObjectInfo> objects) {
   for (auto &it : objects)
     d_multiple_rigid_poses_->addModel(it.filename_.c_str(), it.scale_,
                                       init_pose);
+}
+
+void MultiRigidTracker::setPoses(std::vector<pose::TranslationRotation3D>& poses)
+{
+  d_multiple_rigid_poses_->setPoses(poses);
+}
+
+std::vector<pose::TranslationRotation3D>
+     MultiRigidTracker::getPoses() const
+{
+  return d_multiple_rigid_poses_->getPoses();
 }
 
 void MultiRigidTracker::setWeights(float w_flow, float w_ar_flow,
@@ -256,28 +322,41 @@ void MultiRigidTracker::computePoseUpdate() {
   // -----------
 
   d_multiple_rigid_poses_->setPoses(old_sparse_poses);
+  //
+  // std::cout << "sparse poses: " << std::endl;
+  // old_sparse_poses[0].show();
+  //
+  // store unblended image for later
 
-  // compute sparse ar flow
-  vision::augmentedRealityFloatArraySelectiveBlend(
-      d_float_ar_frame_->data(), d_prev_float_frame_->data(),
-      d_multiple_rigid_poses_->getTexture(),
-      d_multiple_rigid_poses_->getSegmentIND(), image_width_, image_height_,
-      d_float_ar_frame_->pitch(), d_multiple_rigid_poses_->getNObjects());
 
-  d_optical_flow_->addImageAR(*d_float_ar_frame_);
-  d_optical_flow_->updateOpticalFlowAR();
+  // // compute sparse ar flow
+  // vision::augmentedRealityFloatArraySelectiveBlend(
+  //     d_float_ar_frame_->data(), d_prev_float_frame_->data(), // blend old frame with current poses
+  //     d_multiple_rigid_poses_->getTexture(),
+  //     d_multiple_rigid_poses_->getSegmentIND(), image_width_, image_height_,
+  //     d_float_ar_frame_->pitch(), d_multiple_rigid_poses_->getNObjects());
+  //
+  // d_optical_flow_->addImageAR(*d_float_ar_frame_);
+  // d_optical_flow_->updateOpticalFlowAR();
+  //
+  // d_multiple_rigid_poses_->evaluateARFlowPoseError(
+  //     false, d_optical_flow_->getARFlowX(), old_sparse_poses);
+  //
+  // // store sparse ar flow to avoid recomputation
+  // d_flow_ar_x_tmp_->copyFrom(d_optical_flow_->getARFlowX());
+  // d_flow_ar_y_tmp_->copyFrom(d_optical_flow_->getARFlowY());
 
-  d_multiple_rigid_poses_->evaluateARFlowPoseError(
-      false, d_optical_flow_->getARFlowX(), old_sparse_poses);
+  // before we evaluate dense pose, we need to some how reset the information
+  // about the sparse pose now embedded in the float ar frame
 
-  // store sparse ar flow to avoid recomputation
-  d_flow_ar_x_tmp_->copyFrom(d_optical_flow_->getARFlowX());
-  d_flow_ar_y_tmp_->copyFrom(d_optical_flow_->getARFlowY());
 
   // eval dense
   // -----------
 
   d_multiple_rigid_poses_->setPoses(old_dense_poses);
+
+  // std::cout << "dense poses: " << std::endl;
+  // old_dense_poses[0].show();
 
   // compute sparse ar flow
   vision::augmentedRealityFloatArraySelectiveBlend(
@@ -294,18 +373,30 @@ void MultiRigidTracker::computePoseUpdate() {
 
   // determine winner
   // ----------------
+  //
+  // if (d_multiple_rigid_poses_->isDenseWinner())
+  //   d_multiple_rigid_poses_->setPoses(old_dense_poses);
+  // else
+  //   d_multiple_rigid_poses_->setPoses(old_sparse_poses);
+  //
+  //
+  //
+  // const util::Device1D<float> &d_flow_ar_x_winner =
+  //     d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowX()
+  //                                              : *d_flow_ar_x_tmp_.get();
+  // const util::Device1D<float> &d_flow_ar_y_winner =
+  //     d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowY()
+  //                                              : *d_flow_ar_y_tmp_.get();
 
-  if (d_multiple_rigid_poses_->isDenseWinner())
+
+
+
+  // ooverride dense winnder
     d_multiple_rigid_poses_->setPoses(old_dense_poses);
-  else
-    d_multiple_rigid_poses_->setPoses(old_sparse_poses);
 
-  const util::Device1D<float> &d_flow_ar_x_winner =
-      d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowX()
-                                               : *d_flow_ar_x_tmp_.get();
-  const util::Device1D<float> &d_flow_ar_y_winner =
-      d_multiple_rigid_poses_->isDenseWinner() ? d_optical_flow_->getARFlowY()
-                                               : *d_flow_ar_y_tmp_.get();
+  const util::Device1D<float> &d_flow_ar_x_winner = d_optical_flow_->getARFlowX();
+
+  const util::Device1D<float> &d_flow_ar_y_winner = d_optical_flow_->getARFlowY();
 
   //  util::TimerGPU update_timer;
   // update pose
@@ -330,7 +421,7 @@ cv::Mat MultiRigidTracker::generateOutputImage(OutputImageType image_type) {
     d_multiple_rigid_poses_->setRenderStateChanged(true);
     vision::convertFloatArrayToGrayRGBA(d_flow_x_rgba_->data(),
                                         d_multiple_rigid_poses_->getTexture(),
-                                        image_width_, image_height_, 1.0, 2.0);
+                                        image_width_, image_height_, 0, 0.1);
     cudaMemcpy(texture.data, d_flow_x_rgba_->data(),
                image_width_ * image_height_ * sizeof(uchar4),
                cudaMemcpyDeviceToHost);
@@ -348,16 +439,17 @@ cv::Mat MultiRigidTracker::generateOutputImage(OutputImageType image_type) {
     break;
 
   case OutputImageType::optical_flow_x:
+  {
     vision::convertFlowToRGBA(d_flow_x_rgba_->data(), d_flow_y_rgba_->data(),
-                              d_optical_flow_->getOpticalFlowX().data(),
-                              d_optical_flow_->getOpticalFlowY().data(),
+                              d_optical_flow_->getARFlowX().data(),
+                              d_optical_flow_->getARFlowY().data(),
                               image_width_, image_height_, lower_lim, upper_lim,
                               min_mag);
     cudaMemcpy(texture.data, d_flow_x_rgba_->data(),
                image_width_ * image_height_ * sizeof(uchar4),
                cudaMemcpyDeviceToHost);
     break;
-
+  }
   case OutputImageType::optical_flow_y:
     vision::convertFlowToRGBA(d_flow_x_rgba_->data(), d_flow_y_rgba_->data(),
                               d_optical_flow_->getARFlowX().data(),

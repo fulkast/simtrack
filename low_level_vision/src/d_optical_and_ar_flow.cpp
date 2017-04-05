@@ -86,6 +86,13 @@ D_OpticalAndARFlow::D_OpticalAndARFlow(const util::Device2D<float> &rgb,
   gabor_pyramid_ar_ = std::unique_ptr<D_GaborPyramid>{ new D_GaborPyramid(
       *image_pyramid_, buffer_, parameters_.four_orientations_) };
 
+  gabor_pyramids_ar_.push_back(std::unique_ptr<D_GaborPyramid>{
+    new D_GaborPyramid(*image_pyramid_, buffer_, parameters_.four_orientations_)
+  });
+  gabor_pyramids_ar_.push_back(std::unique_ptr<D_GaborPyramid>{
+    new D_GaborPyramid(*image_pyramid_, buffer_, parameters_.four_orientations_)
+  });
+
   // allocate device optical flow pyramid (re-used for real and ar)
   for (int s = 0; s < image_pyramid_->n_scales_; s++) {
     auto &image = image_pyramid_->getImageAtScale(s);
@@ -129,8 +136,12 @@ void D_OpticalAndARFlow::addImageAR(const util::Device2D<float> &rgb) {
 
   updateRootImage(rgb);
 
+  //update ar circular buffer
+  gabor_pyramids_ar_.at(0).swap(gabor_pyramids_ar_.at(1));
+
   image_pyramid_->resetRootImage(root_image_);
   gabor_pyramid_ar_->resetImagePyramid(*image_pyramid_);
+  gabor_pyramids_ar_.at(1)->resetImagePyramid(*image_pyramid_);
 }
 
 void D_OpticalAndARFlow::updateOpticalFlowReal() {
@@ -178,9 +189,13 @@ void D_OpticalAndARFlow::updateOpticalFlowAR() {
   std::vector<int> n_cols(parameters_.n_scales_);
 
   for (int s = 0; s < parameters_.n_scales_; s++) {
-    auto& gab0 = gabor_pyramid_ar_->getGaborAtScale(s).getGaborInterleaved();
+    // auto& gab0 = gabor_pyramid_ar_->getGaborAtScale(s).getGaborInterleaved();
+    // auto& gab1 =
+    //     gabor_pyramids_real_.at(1)->getGaborAtScale(s).getGaborInterleaved();
+    auto& gab0 =
+           gabor_pyramids_ar_.at(0)->getGaborAtScale(s).getGaborInterleaved();
     auto& gab1 =
-        gabor_pyramids_real_.at(1)->getGaborAtScale(s).getGaborInterleaved();
+           gabor_pyramids_ar_.at(1)->getGaborAtScale(s).getGaborInterleaved();
     gabPyrReal0.at(s).ptr = gab0.data();
     gabPyrReal0.at(s).pitch = gab0.pitch();
     gabPyrReal1.at(s).ptr = gab1.data();
