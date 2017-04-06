@@ -79,12 +79,6 @@ target_link_libraries(multi_rigid_node
 add_dependencies(multi_rigid_node
   ${PROJECT_NAME}_gencfg)
 
-add_executable(pr2_cam_switch_node
-  src/pr2_cam_switch_node_main.cpp
-)
-target_link_libraries(pr2_cam_switch_node
-  ${PROJECT_NAME}
-)
 
 add_executable(rotate_model_node
   src/rotate_model_main.cpp
