@@ -70,16 +70,6 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
 )
 
-add_executable(multi_rigid_node
-  src/multi_rigid_node_main.cpp
-)
-target_link_libraries(multi_rigid_node
-  ${PROJECT_NAME}
-)
-add_dependencies(multi_rigid_node
-  ${PROJECT_NAME}_gencfg)
-
-
 add_executable(rotate_model_node
   src/rotate_model_main.cpp
 )
