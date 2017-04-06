@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.7)
 project(low_level_vision)
 
-SET(CMAKE_CXX_COMPILER gcc-4.9)
+SET(CMAKE_CXX_COMPILER /usr/bin/gcc-4.9)
 
 find_package(catkin REQUIRED COMPONENTS
   utilities
