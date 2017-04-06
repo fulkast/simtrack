@@ -65,6 +65,7 @@ add_library(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
+  ${catkin_LIBRARIES}
 )
 
 add_executable(rotate_model_node
@@ -72,5 +73,5 @@ add_executable(rotate_model_node
 )
 add_definitions(-DRGB_ZERO_OVERRIDE=1)
 target_link_libraries(rotate_model_node
-  ${PROJECT_NAME}   ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
 )
