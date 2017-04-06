@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
   // read object(s) state
   std::vector<pose::TranslationRotation3D> object_poses;
   std::vector<std::string> obj_file_names
-  (1,"/home/seasponge/Workspace/catkin_local_ws/src/simtrack-flow-writer/data/object_models/texturedMug/texturedMug.obj");
+  (1,"/home/seasponge/Workspace/catkin_local_ws/src/simtrack/data/object_models/ikeaMug/ikeaMug.obj");
 
   int n_objects = 1;
   {
