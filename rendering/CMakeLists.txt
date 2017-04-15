@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   resource_retriever
   kdl_parser
+  utilities
 )
 
 find_package(CUDA 6.5 REQUIRED)

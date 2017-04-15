@@ -173,6 +173,17 @@ int main(int argc, char **argv) {
 
     cv::Mat texture = cv::Mat::zeros(height, width, CV_8UC4);
 
+    util::Device1D<float> d_z(height * width);
+    pose::convertZbufferToZ(d_z.data(), *cuda_arrays.at(3), width, height, cx, cy,
+                            near_plane, far_plane);
+    d_z.copyTo(h_out);
+
+    for (auto point : h_out) {
+      if (!isnan(point)) std::cout << point << std::endl;
+    }
+    // cv::Mat depth(height, width, CV_32FC1, h_out.data());
+    // std::cout << depth << std::endl;
+
     cudaMemcpyFromArray(texture.data, *cuda_arrays.at(5), 0, 0,
                         width * height * sizeof(float), cudaMemcpyDeviceToHost);
 

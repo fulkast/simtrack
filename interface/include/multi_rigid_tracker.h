@@ -82,6 +82,9 @@ public:
 
   std::vector<pose::TranslationRotation3D> getPoses() const;
 
+  pose::TranslationRotation3D getCameraPose() const {
+                              return d_multiple_rigid_poses_->getCameraPose(); }
+
   int getNumberOfObjects();
 
   Ogre::SceneManager *getSceneManager() {
@@ -119,6 +122,10 @@ public:
   std::vector<std::vector<double> > getBoundingBoxesInCameraImage() {
     return d_multiple_rigid_poses_->getBoundingBoxesInCameraImage();
   }
+
+  cv::Mat getObjMask() const;
+
+  cudaArray* getZBuffer() const;
 
   void writeSerializedARFlowX2JSON(std::string filename) const;
 

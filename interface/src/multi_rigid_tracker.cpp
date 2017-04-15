@@ -139,8 +139,7 @@ void MultiRigidTracker::writeSerializedARFlowY2JSON(std::string filename) const
    ox << jx << std::endl;
 }
 
-void MultiRigidTracker::writeSerializedObjMask(std::string filename) const
-{
+cv::Mat MultiRigidTracker::getObjMask() const {
   cv::Mat output = cv::Mat::zeros(image_height_, image_width_, CV_8UC4);
   d_multiple_rigid_poses_->setRenderStateChanged(true);
   vision::convertFloatArrayToGrayRGBA(d_flow_x_rgba_->data(),
@@ -151,6 +150,17 @@ void MultiRigidTracker::writeSerializedObjMask(std::string filename) const
              image_width_ * image_height_ * sizeof(uchar4),
              cudaMemcpyDeviceToHost);
   cv::cvtColor(output, output, cv::COLOR_BGR2GRAY);
+  return output;
+}
+
+cudaArray* MultiRigidTracker::getZBuffer() const {
+  return d_multiple_rigid_poses_->getZbuffer();
+}
+
+
+void MultiRigidTracker::writeSerializedObjMask(std::string filename) const
+{
+  cv::Mat output = getObjMask();
   std::cout << "mask output type " << output.type() << std::endl;
   std::vector<uchar> array;
   if (output.isContinuous()) {

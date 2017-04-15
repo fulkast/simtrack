@@ -236,6 +236,8 @@ public:
 
   bool getCheckReliability() const { return (parameters_.check_reliability_); }
 
+  pose::TranslationRotation3D getCameraPose() const { return camera_pose_;}
+
   void setPoses(std::vector<TranslationRotation3D> &newPoses) {
     // std::cout << "setting a pose" << std::endl;
     _currentPoses = newPoses;
